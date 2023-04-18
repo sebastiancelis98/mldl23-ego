@@ -93,7 +93,7 @@ class Task(torch.nn.Module, metaclass=ABCMeta):
         """
         logger.info("Restoring {} for modality {} from {}".format(self.name, m, path))
 
-        checkpoint = torch.load(path)
+        checkpoint = torch.load(path, map_location=torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")) 
 
         # Restore the state of the task
         self.current_iter = checkpoint["iteration"]
@@ -156,7 +156,7 @@ class Task(torch.nn.Module, metaclass=ABCMeta):
             )[0].name
             model_path = os.path.join(str(last_dir), model)
 
-            self.__restore_checkpoint(model_path)
+            self.__restore_checkpoint(m, model_path)
 
     def load_last_model(self, path: str):
         """Load the last model from a specific path.
@@ -167,13 +167,15 @@ class Task(torch.nn.Module, metaclass=ABCMeta):
             directory to load models from
         """
         # List all the files in the path in chronological order (1st is most recent, last is less recent)
-        last_models_dir = list(
-            sorted(
-                Path(path).iterdir(),
-                key=lambda date: datetime.strptime(os.path.basename(os.path.normpath(date)), "%b%d_%H-%M-%S"),
-            )
-        )[-1]
-        saved_models = [x for x in reversed(sorted(Path(last_models_dir).iterdir(), key=os.path.getmtime))]
+        models_dir = list(Path(path).iterdir())
+        models_dir = [x for x in models_dir if not x.name.startswith(".")]
+        models_dir = sorted(models_dir,
+                                key=lambda date: datetime.strptime(os.path.basename(os.path.normpath(date)), "%b%d_%H-%M-%S"))
+        latest_model_dir = models_dir[-1] if len(models_dir) > 0 else None
+
+        assert latest_model_dir is not None, "No model found in {}".format(path)
+
+        saved_models = [x for x in reversed(sorted(Path(latest_model_dir).iterdir(), key=os.path.getmtime))]
 
         for m in self.modalities:
             # Get the correct model (modality, name, idx)
@@ -185,8 +187,8 @@ class Task(torch.nn.Module, metaclass=ABCMeta):
                 )
             )[0].name
 
-            model_path = os.path.join(last_models_dir, model)
-            self.__restore_checkpoint(model_path)
+            model_path = os.path.join(latest_model_dir, model)
+            self.__restore_checkpoint(m, model_path)
 
     def save_model(self, current_iter: int, last_iter_acc: float, prefix: Optional[str] = None):
         """Save the model.
