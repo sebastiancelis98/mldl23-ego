@@ -6,7 +6,9 @@ import torch.utils.data as data
 from PIL import Image
 import os
 import os.path
+import numpy as np
 from utils.logger import logger
+
 
 class EpicKitchensDataset(data.Dataset, ABC):
     def __init__(self, split, modalities, mode, dataset_conf, num_frames_per_clip, num_clips, dense_sampling,
@@ -47,6 +49,8 @@ class EpicKitchensDataset(data.Dataset, ABC):
 
         self.list_file = pd.read_pickle(os.path.join(self.dataset_conf.annotations_path, pickle_name))
         logger.info(f"Dataloader for {split}-{self.mode} with {len(self.list_file)} samples generated")
+        logger.info(f"Using videos from {self.list_file['video_id'].unique()}")
+
         self.video_list = [EpicVideoRecord(tup, self.dataset_conf) for tup in self.list_file.iterrows()]
         self.transform = transform  # pipeline of transforms
         self.load_feat = load_feat
@@ -85,7 +89,51 @@ class EpicKitchensDataset(data.Dataset, ABC):
         # Remember that the returned array should have size              #
         #           num_clip x num_frames_per_clip                       #
         ##################################################################
-        raise NotImplementedError("You should implement _get_val_indices")
+
+        # Extract the number of frames in the video
+        num_frames = record.num_frames[modality]
+
+        # Determine the number of frames per clip based on the modality
+        desired_frames_per_clip = self.num_frames_per_clip[modality]
+
+        # Determine the number of clips to extract
+        num_clips = self.num_clips
+
+        #  Calculate the stride for the clip sampling
+        frames_per_clip = num_frames / num_clips
+
+        clips = [[] for _ in range(num_clips)]
+        sampled_frames = []
+
+        for i in range(num_frames):
+            clip_id = int(i // frames_per_clip)
+            clips[clip_id].append(i)
+
+        for clip in clips:
+            if self.dense_sampling[modality]:
+                #  Dense sampling per clip around the center
+                sampled_frame_start_idx = len(clip) // 2 - desired_frames_per_clip // 2
+                sampled_frame_end_idx = len(clip) // 2 + desired_frames_per_clip // 2
+
+                if desired_frames_per_clip % 2 != 0:
+                    sampled_frame_end_idx += 1
+
+                sampled_frame_start_idx = max(0, sampled_frame_start_idx)
+                sampled_frame_end_idx = min(len(clip), sampled_frame_end_idx)
+
+                sampled_frames.extend(clip[sampled_frame_start_idx:sampled_frame_end_idx])
+            else:
+                # Pick desired_frames_per_clip frames uniformly non randomly from the clip
+                step_size = len(clip) / desired_frames_per_clip
+                sampled_frames.extend([clip[int(i * step_size)] for i in range(desired_frames_per_clip)])
+
+        while len(sampled_frames) < num_clips * desired_frames_per_clip:
+            sampled_frames.extend(sampled_frames[:num_clips * desired_frames_per_clip - len(sampled_frames)])
+
+        #  Assertion to check that the number of sampled frames is correct
+        assert len(sampled_frames) == num_clips * desired_frames_per_clip, sampled_frames
+
+        return sampled_frames
 
     def __getitem__(self, index):
 
@@ -119,8 +167,8 @@ class EpicKitchensDataset(data.Dataset, ABC):
                 segment_indices[modality] = self._get_val_indices(record, modality)
 
         for m in self.modalities:
-            img, label = self.get(m, record, segment_indices[m])
-            frames[m] = img
+            images, label = self.get(m, record, segment_indices[m])
+            frames[m] = images
 
         if self.additional_info:
             return frames, label, record.untrimmed_video_name, record.uid
@@ -160,7 +208,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
                 else:
                     raise FileNotFoundError
             return [img]
-        
+
         else:
             raise NotImplementedError("Modality not implemented")
 
