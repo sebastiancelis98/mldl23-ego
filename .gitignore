@@ -186,3 +186,4 @@ fabric.properties
 # .idea
 
 utils/output
+ek_data/*
