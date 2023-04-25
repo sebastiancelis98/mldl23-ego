@@ -78,7 +78,38 @@ class EpicKitchensDataset(data.Dataset, ABC):
         # Remember that the returned array should have size              #
         #           num_clip x num_frames_per_clip                       #
         ##################################################################
-        raise NotImplementedError("You should implement _get_train_indices")
+
+        # Extract the number of frames in the video
+        num_frames = record.num_frames[modality]
+
+        # Determine the number of frames per clip based on the modality
+        desired_frames_per_clip = self.num_frames_per_clip[modality]
+
+        num_clips = self.num_clips
+
+        frames_per_clip = num_frames / num_clips
+
+        clips = [[] for _ in range(num_clips)]
+        sampled_frames = []
+
+        for i in range(num_frames):
+            clip_id = int(i // frames_per_clip)
+            clips[clip_id].append(i)
+
+        for clip in clips:
+            #  Randomly sample desired number of frames from the clip
+            if len(clip) > desired_frames_per_clip:
+                sampled_frames += sorted(np.random.choice(clip, desired_frames_per_clip, replace=False).tolist())
+            else:
+                sampled_frames += clip
+
+        while len(sampled_frames) < num_clips * desired_frames_per_clip:
+            sampled_frames.extend(sampled_frames[:num_clips * desired_frames_per_clip - len(sampled_frames)])
+
+        #  Assertion to check that the number of sampled frames is correct
+        assert len(sampled_frames) == num_clips * desired_frames_per_clip, sampled_frames
+
+        return sampled_frames
 
     def _get_val_indices(self, record, modality):
         ##################################################################
@@ -96,10 +127,8 @@ class EpicKitchensDataset(data.Dataset, ABC):
         # Determine the number of frames per clip based on the modality
         desired_frames_per_clip = self.num_frames_per_clip[modality]
 
-        # Determine the number of clips to extract
         num_clips = self.num_clips
 
-        #  Calculate the stride for the clip sampling
         frames_per_clip = num_frames / num_clips
 
         clips = [[] for _ in range(num_clips)]
