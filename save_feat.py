@@ -12,6 +12,8 @@ import os
 import models as model_list
 import tasks
 
+from tqdm import tqdm
+
 # global variables among training functions
 modalities = None
 np.random.seed(13696641)
@@ -43,6 +45,7 @@ def main():
     models = {}
     train_augmentations = {}
     test_augmentations = {}
+    logger.info(f"Using device: {device}")
     logger.info("Instantiating models per modality")
     for m in modalities:
         logger.info('{} Net\tModality: {}'.format(args.models[m].model, m))
@@ -91,7 +94,7 @@ def save_feat(model, loader, device, it, num_classes):
     features = {}
     # Iterate over the models
     with torch.no_grad():
-        for i_val, (data, label, video_name, uid) in enumerate(loader):
+        for i_val, (data, label, video_name, uid) in enumerate(tqdm(loader)):
             label = label.to(device)
 
             for m in modalities:
