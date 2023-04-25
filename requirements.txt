@@ -27,3 +27,4 @@ wandb==0.13.4
 zipp==3.9.0
 torch==1.12
 torchvision==0.13
+coloredlogs
