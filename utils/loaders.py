@@ -94,7 +94,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
 
         for i in range(num_frames):
             clip_id = int(i // frames_per_clip)
-            clips[clip_id].append(i)
+            clips[clip_id].append(i + 1)
 
         for clip in clips:
             #  Randomly sample desired number of frames from the clip
