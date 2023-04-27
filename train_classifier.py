@@ -97,6 +97,9 @@ def main():
 
         validate(action_classifier, val_loader, device, action_classifier.current_iter, num_classes)
 
+    else:
+        raise ValueError("Action {} not recognized".format(args.action))
+
 
 def train(action_classifier, train_loader, val_loader, device, num_classes):
     """
@@ -149,12 +152,24 @@ def train(action_classifier, train_loader, val_loader, device, num_classes):
         for clip in range(args.train.num_clips):
             # in case of multi-clip training one clip per time is processed
             for m in modalities:
-                data[m] = source_data[m][:, clip].to(device)
+                if action_classifier.model_args[m].get("temporal_aggregation", None) == "AvgPool":
+                    if clip > 0:
+                        continue
+                    
+                    data[m] = source_data[m].to(device).mean(dim=1)
+                else:
+                    data[m] = source_data[m][:, clip].to(device)
+            
+            # Check if data is empty
+            if not data:
+                continue
 
             logits, _ = action_classifier.forward(data)
             action_classifier.compute_loss(logits, source_label, loss_weight=1)
             action_classifier.backward(retain_graph=False)
             action_classifier.compute_accuracy(logits, source_label)
+
+            data.clear()
 
         # update weights and zero gradients if total_batch samples are passed
         if gradient_accumulation_step:
