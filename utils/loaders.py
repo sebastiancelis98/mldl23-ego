@@ -7,6 +7,7 @@ from PIL import Image
 import os
 import os.path
 from utils.logger import logger
+import random
 
 class EpicKitchensDataset(data.Dataset, ABC):
     def __init__(self, split, modalities, mode, dataset_conf, num_frames_per_clip, num_clips, dense_sampling,
@@ -74,6 +75,57 @@ class EpicKitchensDataset(data.Dataset, ABC):
         # Remember that the returned array should have size              #
         #           num_clip x num_frames_per_clip                       #
         ##################################################################
+
+        
+        num_frames = record.num_frames
+
+        
+        num_frames_per_clip = self.num_frames_per_clip[modality]
+
+        
+        stride = num_frames_per_clip
+
+        
+        max_num_clips = (num_frames - num_frames_per_clip) // stride + 1
+
+        
+        clip_indices = random.sample(range(max_num_clips), 5)
+
+        
+        indices = []
+        for clip_index in clip_indices:
+            start_index = clip_index * stride
+            end_index = start_index + num_frames_per_clip
+            indices.append(list(range(start_index, end_index)))
+
+        return indices
+
+        # Non-uniform Sampling###################################
+       
+        # num_frames = record.num_frames
+
+       
+        # num_frames_per_clip = self.num_frames_per_clip[modality]
+
+       
+        # stride = num_frames_per_clip
+
+        
+        # max_num_clips = (num_frames - num_frames_per_clip) // stride + 1
+
+      
+        # intervals = np.array([2, 2, 2, 3, 3]) * stride
+
+        
+        # starts = np.cumsum(intervals) - intervals[0]
+
+       
+        # indices = []
+        # for start in starts:
+        #     clip_indices = list(range(start, start + num_frames_per_clip))
+        #     indices.append(clip_indices)
+
+        # return indices
         raise NotImplementedError("You should implement _get_train_indices")
 
     def _get_val_indices(self, record, modality):
@@ -85,7 +137,61 @@ class EpicKitchensDataset(data.Dataset, ABC):
         # Remember that the returned array should have size              #
         #           num_clip x num_frames_per_clip                       #
         ##################################################################
+
+        
+        num_frames = record.num_frames
+
+       
+        num_frames_per_clip = self.num_frames_per_clip[modality]
+
+        
+        stride = num_frames_per_clip
+
+        
+        center_indices = []
+        for i in range(5):
+            center_index = (i + 0.5) * num_frames / 5
+            center_indices.append(center_index)
+
+        
+        indices = []
+        for center_index in center_indices:
+            start_index = int(center_index - num_frames_per_clip / 2)
+            end_index = int(center_index + num_frames_per_clip / 2)
+            indices.append(list(range(start_index, end_index)))
+
+        return indices
+        #Non-uniform sampling####################################
+
+        
+        # num_frames = record.num_frames
+
+       
+        # num_frames_per_clip = self.num_frames_per_clip[modality]
+
+       
+        # stride = num_frames_per_clip
+
+       
+        # max_num_clips = (num_frames - num_frames_per_clip) // stride + 1
+
+       
+        # intervals = np.array([2, 2, 2, 3, 3]) * stride
+
+        
+        # starts = np.cumsum(intervals) - intervals[0]
+
+       
+        # indices = []
+        # for start in starts:
+        #     clip_indices = list(range(start, start + num_frames_per_clip))
+        #     indices.append(clip_indices)
+
+        # return indices
+    
+        
         raise NotImplementedError("You should implement _get_val_indices")
+        
 
     def __getitem__(self, index):
 
