@@ -192,3 +192,7 @@ saved_features/*
 TEST_RESULTS/*
 checkpoints/*
 pretrained_i3d/*
+/checkpoints.zip
+/P01.zip
+/P08.zip
+/P22.zip
