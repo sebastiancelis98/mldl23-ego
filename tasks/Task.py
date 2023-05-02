@@ -185,7 +185,7 @@ class Task(torch.nn.Module, metaclass=ABCMeta):
                     and self.name == x.name.split(".")[0].split("_")[-3],
                     saved_models,
                 )
-            )[0].name
+            )[2].name #initially 0
 
             model_path = os.path.join(latest_model_dir, model)
             self.__restore_checkpoint(m, model_path)
