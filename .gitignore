@@ -187,3 +187,8 @@ fabric.properties
 
 utils/output
 ek_data/*
+
+saved_features/*
+TEST_RESULTS/*
+checkpoints/*
+pretrained_i3d/*
