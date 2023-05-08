@@ -49,6 +49,7 @@ def main():
     logger.info("Instantiating models per modality")
     for m in modalities:
         logger.info('{} Net\tModality: {}'.format(args.models[m].model, m))
+
         models[m] = getattr(model_list, args.models[m].model)(num_classes, m, args.models[m], **args.models[m].kwargs)
         train_augmentations[m], test_augmentations[m] = models[m].get_augmentation(m)
 

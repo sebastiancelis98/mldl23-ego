@@ -1,5 +1,5 @@
-action: test # train or test
-name: test2 # name of the experiment needed for the logs
+action: train # train or test
+name: train2 # name of the experiment needed for the logs
 modality: ["RGB"] # modality used
 total_batch: 128 # total batch size if training is done with gradient accumulation
 batch_size: 32 # batch size for the forward
@@ -35,14 +35,14 @@ dataset:
   RGB:
     data_path: ek_data/frames # path to RGB data
     tmpl: "img_{:010d}.jpg" # format of RGB filenames
-    features_name: test_feat_kinetics
+    features_name: saved_feat_I3D
   Event: # not neeeded for the project
     rgb4e: 6
 
 # these are the action recognition models for each modality
 models:
   RGB:
-    model: Classifier
+    model: MyClassifier
     normalize: False
     kwargs: {}
     lr_steps: 3000

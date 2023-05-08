@@ -27,7 +27,9 @@ def add_paths():
 conf_path = os.path.join(os.path.dirname(__file__), '../configs')
 
 # Retrieve the default config
-args = OmegaConf.load(os.path.join(conf_path, "default.yaml"))
+#D:\Emre\poliTO\2nd semester\MLDL\mldl23-ego\configs\I3D_save_feat.yaml
+args = OmegaConf.load(os.path.join(conf_path, "classifier_train.yaml"))
+#args = OmegaConf.load(os.path.join(conf_path, "classifier_train.yaml"))
 
 # Read the cli args
 cli_args = OmegaConf.from_cli()
@@ -37,8 +39,8 @@ if 'config' in cli_args and cli_args.config:
     conf_args = OmegaConf.load(cli_args.config)
     args = OmegaConf.merge(args, conf_args)
 else:
-    conf_args = OmegaConf.load(os.path.join(conf_path, "debug.yaml"))
-    args = OmegaConf.merge(args, conf_args)
+    conf_args = OmegaConf.load(os.path.join(conf_path, "default.yaml"))
+    args = OmegaConf.merge(conf_args,args)
 
 path_args = add_paths()
 args = OmegaConf.merge(args, path_args)

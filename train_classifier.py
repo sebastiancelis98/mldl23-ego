@@ -56,10 +56,13 @@ def main():
         logger.info('{} Net\tModality: {}'.format(args.models[m].model, m))
         # notice that here, the first parameter passed is the input dimension
         # In our case it represents the feature dimensionality which is equivalent to 1024 for I3D
-        models[m] = getattr(model_list, args.models[m].model)(num_classes, m, args.models[m], **args.models[m].kwargs)
-
+        models[m] = getattr(model_list, args.models[m].model)(num_classes)
+        # name: str, task_models: Dict[str, torch.nn.Module], batch_size: int, 
+        #          total_batch: int, models_dir: str, num_classes: int,
+        #          num_clips: int, model_args: Dict[str, float], args, **kwargs
+        #
     # the models are wrapped into the ActionRecognition task which manages all the training steps
-    action_classifier = tasks.ActionRecognition("action-classifier", models, args.batch_size,
+    action_classifier = tasks.ActionRecognition("MyClassifier", models, args.batch_size,
                                                 args.total_batch, args.models_dir, num_classes,
                                                 args.train.num_clips, args.models, args=args)
     action_classifier.load_on_gpu(device)
