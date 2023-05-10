@@ -35,7 +35,7 @@ def init_operations():
     # wanbd logging configuration
     if args.wandb_name is not None:
         wandb.init(group=args.wandb_name, dir=args.wandb_dir)
-        wandb.run.name = args.name + "_" + args.shift.split("-")[0] + "_" + args.shift.split("-")[-1]
+        wandb.run.name = args.name + "_" + "_".join(args.dataset.shift.split("-"))
 
 
 def main():
@@ -187,12 +187,16 @@ def train(action_classifier, train_loader, val_loader, device, num_classes):
             val_metrics = validate(action_classifier, val_loader, device, int(real_iter), num_classes)
 
             if val_metrics['top1'] <= action_classifier.best_iter_score:
-                logger.info("New best accuracy {:.2f}%"
+                logger.info("Best accuracy {:.2f}%"
                             .format(action_classifier.best_iter_score))
             else:
                 logger.info("New best accuracy {:.2f}%".format(val_metrics['top1']))
                 action_classifier.best_iter = real_iter
                 action_classifier.best_iter_score = val_metrics['top1']
+
+            if wandb.run is not None:
+                wandb.log({"train_loss": action_classifier.loss.avg}, step=int(real_iter))
+                wandb.log({"val_acc": val_metrics['top1']}, step=int(real_iter))
 
             action_classifier.save_model(real_iter, val_metrics['top1'], prefix=None)
             action_classifier.train(True)
