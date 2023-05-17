@@ -110,7 +110,7 @@ class TA3N(nn.Module):
 				new_length:         {}
 				""".format(base_model, self.modality, self.train_segments, self.new_length)))
 
-        self._prepare_DA(num_class, base_model, modality)
+        self._prepare_DA(num_class, base_model)
 
         if not self.before_softmax:
             self.softmax = nn.Softmax()
@@ -119,14 +119,10 @@ class TA3N(nn.Module):
         if partial_bn:
             self.partialBN(True)
 
-    def _prepare_DA(self, num_class, base_model, modality):  # convert the model to DA framework
+    def _prepare_DA(self, num_class, base_model):  # convert the model to DA framework
         if base_model == 'c3d':  # C3D mode: in construction...
             raise NotImplementedError()
-        elif base_model == "TBN" and modality == "ALL":
-            self.feature_dim = 3072
-        elif base_model == "TBN":
-            self.feature_dim = 1024
-        elif base_model == "I3D":
+        if base_model == "I3D":
             self.feature_dim = 1024
         else:
             model_test = getattr(torchvision.models, base_model)(True)  # model_test is only used for getting the dim #
@@ -170,12 +166,9 @@ class TA3N(nn.Module):
         constant_(self.fc_feature_domain.bias, 0)
 
         # 4. classifiers (frame-level)
-        self.fc_classifier_source_verb = nn.Linear(feat_frame_dim, num_class[0])
-        self.fc_classifier_source_noun = nn.Linear(feat_frame_dim, num_class[1])
-        normal_(self.fc_classifier_source_verb.weight, 0, std)
-        constant_(self.fc_classifier_source_verb.bias, 0)
-        normal_(self.fc_classifier_source_noun.weight, 0, std)
-        constant_(self.fc_classifier_source_noun.bias, 0)
+        self.fc_classifier_source = nn.Linear(feat_frame_dim, num_class)
+        normal_(self.fc_classifier_source.weight, 0, std)
+        constant_(self.fc_classifier_source.bias, 0)
 
         self.fc_classifier_domain = nn.Linear(feat_frame_dim, 2)
         normal_(self.fc_classifier_domain.weight, 0, std)
@@ -197,13 +190,9 @@ class TA3N(nn.Module):
             self.fc_feature_target = nn.Linear(feat_shared_dim, feat_frame_dim)
             normal_(self.fc_feature_target.weight, 0, std)
             constant_(self.fc_feature_target.bias, 0)
-
-            self.fc_classifier_target_verb = nn.Linear(feat_frame_dim, num_class[0])
-            normal_(self.fc_classifier_target_verb.weight, 0, std)
-            constant_(self.fc_classifier_target_verb.bias, 0)
-            self.fc_classifier_target_noun = nn.Linear(feat_frame_dim, num_class[1])
-            normal_(self.fc_classifier_target_noun.weight, 0, std)
-            constant_(self.fc_classifier_target_noun.bias, 0)
+            self.fc_classifier_target = nn.Linear(feat_frame_dim, num_class)
+            normal_(self.fc_classifier_target.weight, 0, std)
+            constant_(self.fc_classifier_target.bias, 0)
 
         # BN for the above layers
         if self.use_bn != 'none':  # S & T: use AdaBN (ICLRW 2017) approach
@@ -285,13 +274,9 @@ class TA3N(nn.Module):
         constant_(self.fc_feature_domain_video.bias, 0)
 
         # 3. classifiers (video-level)
-        self.fc_classifier_video_verb_source = nn.Linear(feat_video_dim, num_class[0])
-        normal_(self.fc_classifier_video_verb_source.weight, 0, std)
-        constant_(self.fc_classifier_video_verb_source.bias, 0)
-
-        self.fc_classifier_video_noun_source = nn.Linear(feat_video_dim, num_class[1])
-        normal_(self.fc_classifier_video_noun_source.weight, 0, std)
-        constant_(self.fc_classifier_video_noun_source.bias, 0)
+        self.fc_classifier_video_source = nn.Linear(feat_video_dim, num_class)
+        normal_(self.fc_classifier_video_source.weight, 0, std)
+        constant_(self.fc_classifier_video_source.bias, 0)
 
         if self.ens_DA == 'MCD':
             self.fc_classifier_video_source_2 = nn.Linear(feat_video_dim, num_class)  # second classifier for self-ensembling
@@ -320,14 +305,9 @@ class TA3N(nn.Module):
             self.fc_feature_video_target_2 = nn.Linear(feat_video_dim, feat_video_dim)
             normal_(self.fc_feature_video_target_2.weight, 0, std)
             constant_(self.fc_feature_video_target_2.bias, 0)
-
-            self.fc_classifier_video_verb_target = nn.Linear(feat_video_dim, num_class)
-            normal_(self.fc_classifier_video_verb_target.weight, 0, std)
-            constant_(self.fc_classifier_video_verb_target.bias, 0)
-
-            self.fc_classifier_video_noun_target = nn.Linear(feat_video_dim, num_class)
-            normal_(self.fc_classifier_video_noun_target.weight, 0, std)
-            constant_(self.fc_classifier_video_noun_target.bias, 0)
+            self.fc_classifier_video_target = nn.Linear(feat_video_dim, num_class)
+            normal_(self.fc_classifier_video_target.weight, 0, std)
+            constant_(self.fc_classifier_video_target.bias, 0)
 
         # BN for the above layers
         if self.use_bn != 'none':  # S & T: use AdaBN (ICLRW 2017) approach
@@ -468,14 +448,15 @@ class TA3N(nn.Module):
             base_out = pred
 
         if not self.before_softmax:
-            base_out = (self.softmax(base_out[0]), self.softmax(base_out[1]))
+            base_out = self.softmax(base_out)
+
         output = base_out
 
         if self.baseline_type == 'tsn':
             if self.reshape:
-                base_out = (base_out[0].view((-1, num_segments) + base_out[0].size()[1:]),
-                            base_out[1].view((-1, num_segments) + base_out[1].size()[1:]))  # e.g. 16 x 3 x 12 (3 segments)
-            output = (base_out[0].mean(1), base_out[1].mean(1))  # e.g. 16 x 12
+                base_out = base_out.view((-1, num_segments) + base_out.size()[1:])  # e.g. 16 x 3 x 12 (3 segments)
+
+            output = base_out.mean(1)  # e.g. 16 x 12
 
         return output
 
@@ -647,10 +628,8 @@ class TA3N(nn.Module):
             feat_fc_target = self.get_attn_feat_frame(feat_fc_target, pred_fc_domain_frame_target)
 
         # === source layers (frame-level) ===#
-
-        pred_fc_source = (self.fc_classifier_source_verb(feat_fc_source), self.fc_classifier_source_noun(feat_fc_source))
-        pred_fc_target = (self.fc_classifier_target_verb(feat_fc_target) if self.share_params == 'N' else self.fc_classifier_source_verb(feat_fc_target),
-                          self.fc_classifier_target_noun(feat_fc_target) if self.share_params == 'N' else self.fc_classifier_source_noun(feat_fc_target))
+        pred_fc_source = self.fc_classifier_source(feat_fc_source)
+        pred_fc_target = self.fc_classifier_target(feat_fc_target) if self.share_params == 'N' else self.fc_classifier_source(feat_fc_target)
         if self.baseline_type == 'frame':
             # reshape ==> 1st dim is the batch size
             feat_all_source.append(pred_fc_source.view((batch_source, num_segments) + pred_fc_source.size()[-1:]))
@@ -724,18 +703,13 @@ class TA3N(nn.Module):
             feat_fc_video_source = GradReverse.apply(feat_fc_video_source, mu)
             feat_fc_video_target = GradReverse.apply(feat_fc_video_target, mu)
 
-        pred_fc_video_source = (self.fc_classifier_video_verb_source(feat_fc_video_source),
-                                self.fc_classifier_video_noun_source(feat_fc_video_source))
-        pred_fc_video_target = (
-            self.fc_classifier_video_verb_target(feat_fc_video_target)
-            if self.share_params == 'N' else self.fc_classifier_video_verb_source(feat_fc_video_target), self.fc_classifier_video_noun_target(
-                feat_fc_video_target) if self.share_params == 'N' else self.fc_classifier_video_noun_source(feat_fc_video_target))
+        pred_fc_video_source = self.fc_classifier_video_source(feat_fc_video_source)
+        pred_fc_video_target = self.fc_classifier_video_target(
+            feat_fc_video_target) if self.share_params == 'N' else self.fc_classifier_video_source(feat_fc_video_target)
 
         if self.baseline_type == 'video':  # only store the prediction from classifier 1 (for now)
-            feat_all_source.append(pred_fc_video_source[0].view((batch_source,) + pred_fc_video_source[0].size()[-1:]))
-            feat_all_target.append(pred_fc_video_target[0].view((batch_target,) + pred_fc_video_target[0].size()[-1:]))
-            feat_all_source.append(pred_fc_video_source[1].view((batch_source,) + pred_fc_video_source[1].size()[-1:]))
-            feat_all_target.append(pred_fc_video_target[1].view((batch_target,) + pred_fc_video_target[1].size()[-1:]))
+            feat_all_source.append(pred_fc_video_source.view((batch_source,) + pred_fc_video_source.size()[-1:]))
+            feat_all_target.append(pred_fc_video_target.view((batch_target,) + pred_fc_video_target.size()[-1:]))
 
         # === adversarial branch (video-level) ===#
         pred_fc_domain_video_source = self.domain_classifier_video(feat_fc_video_source, beta)
