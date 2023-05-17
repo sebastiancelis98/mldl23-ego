@@ -73,7 +73,13 @@ def main():
         # notice, here it is multiplied by tot_batch/batch_size since gradient accumulation technique is adopted
         training_iterations = args.train.num_iter * (args.total_batch // args.batch_size)
         # all dataloaders are generated here
-        train_loader = torch.utils.data.DataLoader(EpicKitchensDataset(args.dataset.shift.split("-")[0], modalities,
+        source_loader = torch.utils.data.DataLoader(EpicKitchensDataset(args.dataset.shift.split("-")[0], modalities,
+                                                                       'train', args.dataset, None, None, None,
+                                                                       None, load_feat=True),
+                                                   batch_size=args.batch_size, shuffle=True,
+                                                   num_workers=args.dataset.workers, pin_memory=True, drop_last=True)
+        
+        target_loader = torch.utils.data.DataLoader(EpicKitchensDataset(args.dataset.shift.split("-")[-1], modalities,
                                                                        'train', args.dataset, None, None, None,
                                                                        None, load_feat=True),
                                                    batch_size=args.batch_size, shuffle=True,
@@ -84,7 +90,7 @@ def main():
                                                                      None, load_feat=True),
                                                  batch_size=args.batch_size, shuffle=False,
                                                  num_workers=args.dataset.workers, pin_memory=True, drop_last=False)
-        train(action_classifier, train_loader, val_loader, device, num_classes)
+        train(action_classifier, source_loader, val_loader, device, num_classes)
 
     elif args.action == "validate":
         if args.resume_from is not None:
@@ -152,14 +158,8 @@ def train(action_classifier, train_loader, val_loader, device, num_classes):
         for clip in range(args.train.num_clips):
             # in case of multi-clip training one clip per time is processed
             for m in modalities:
-                if action_classifier.model_args[m].get("temporal_aggregation", None) == "AvgPool":
-                    if clip > 0:
-                        continue
-                    
-                    data[m] = source_data[m].to(device).mean(dim=1)
-                else:
-                    data[m] = source_data[m][:, clip].to(device)
-            
+                data[m] = (source_data[m][:, clip].to(device), source_data[m][:, clip].to(device), 0, 0, True, False)
+
             # Check if data is empty
             if not data:
                 continue

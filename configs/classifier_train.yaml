@@ -37,7 +37,7 @@ dataset:
 # these are the action recognition models for each modality
 models:
   RGB:
-    model: Classifier
+    model: TA3NClassifier
     input_size: 1024
     hidden_size: 128
     dropout: 0.5
