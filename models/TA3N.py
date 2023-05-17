@@ -5,13 +5,10 @@ from torch.autograd import Function
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
-import TRNmodule
+from models import TRNmodule
 
 from colorama import init
 from colorama import Fore, Back, Style
-
-torch.manual_seed(1)
-torch.cuda.manual_seed_all(1)
 
 init(autoreset=True)
 
@@ -128,6 +125,8 @@ class TA3N(nn.Module):
         elif base_model == "TBN" and modality == "ALL":
             self.feature_dim = 3072
         elif base_model == "TBN":
+            self.feature_dim = 1024
+        elif base_model == "I3D":
             self.feature_dim = 1024
         else:
             model_test = getattr(torchvision.models, base_model)(True)  # model_test is only used for getting the dim #
