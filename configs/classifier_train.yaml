@@ -48,4 +48,8 @@ models:
     lr: 0.01
     sgd_momentum: 0.9
     weight_decay: 1e-8
-    temporal_aggregation: AvgPool
+    temporal_aggregation: avgpool
+    alpha: 0
+    beta: [0.75, 0.75, 0.5]
+    mu: 0
+    reverse: False
