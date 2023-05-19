@@ -1,6 +1,5 @@
 from torch import nn
 import models
-from models.TA3N import TA3N
 
 
 class TA3NClassifier(models.VideoModel):
@@ -10,20 +9,37 @@ class TA3NClassifier(models.VideoModel):
         [TODO]: the classifier should be implemented by the students and different variations of it can be tested
         in order to understand which is the most performing one """
 
-        self.num_class = num_class
-        self.model = TA3N(num_class, baseline_type=None, frame_aggregation=model_config.temporal_aggregation,
-                          modality=modality, base_model="I3D", partial_bn=False)
-
-        self.beta = model_config.beta
-        self.mu = model_config.mu
-        self.reverse = model_config.reverse
+        self.fc1 = nn.Linear(model_config["input_size"], model_config["hidden_size"])
+        self.relu = nn.ReLU(inplace=True)
+        self.dropout = nn.Dropout(p=model_config["dropout"])
+        self.fc2 = nn.Linear(model_config["hidden_size"], num_class)
 
     def forward(self, x):
-        source_data, target_data, is_training = x
-
-        x = self.model(source_data, target_data, self.beta, self.mu, is_training, self.reverse)
-        assert False, x[0]
+        x = self.fc1(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+        x = self.fc2(x)
         return x, {}
 
     def get_augmentation(self, modality):
-        return super().get_augmentation(modality)
+        assert False
+        if modality == 'RGB':
+            train_augmentation = torchvision.transforms.Compose(
+                # Data augmentation, at first reduce then interpolate
+                [GroupMultiScaleCrop(self.model_config.resolution, [1, .875, .75]),
+                 GroupRandomHorizontalFlip(is_flow=False),
+                 Stack(roll=False),
+                 ToTorchFormatTensor(div=not self.model_config.normalize),
+                 GroupNormalize(self.model_config.normalize, self.input_mean, self.input_std, self.range)]
+            )
+
+            val_augmentation = torchvision.transforms.Compose([
+                GroupCenterCrop(self.model_config.resolution),
+                Stack(roll=False),
+                ToTorchFormatTensor(div=not self.model_config.normalize),
+                GroupNormalize(self.model_config.normalize, self.input_mean, self.input_std, self.range)
+            ])
+        else:
+            raise NotImplementedError
+
+        return train_augmentation, val_augmentation

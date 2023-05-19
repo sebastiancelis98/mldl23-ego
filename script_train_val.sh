@@ -2,7 +2,7 @@
 
 #====== parameters ======#
 dataset=hmdb_ucf # hmdb_ucf | hmdb_ucf_small | ucf_olympic
-class_file='data/classInd_'$dataset'.txt'
+class_file='none'
 training=true # true | false
 testing=false # true | false
 modality=RGB 
@@ -14,7 +14,7 @@ frame_aggregation=avgpool # method to integrate the frame-level features (avgpoo
 add_fc=1
 fc_dim=1024
 arch=I3D
-use_target=uSv # none | Sv | uSv
+use_target=none # none | Sv | uSv
 share_params=Y # Y | N
 
 if [ "$use_target" == "none" ] 
@@ -27,14 +27,15 @@ fi
 #====== select dataset ======#
 path_data_root=/home/mchen2/dataset/ # depend on users
 path_exp_root=action-experiments/ # depend on users
+path_exp=$path_exp_root'Testexp'
 
 if [ "$dataset" == "hmdb_ucf" ] || [ "$dataset" == "hmdb_ucf_small" ] ||[ "$dataset" == "ucf_olympic" ]
 then
 	dataset_source=ucf101 # depend on users
 	dataset_target=hmdb51 # depend on users
 	dataset_val=hmdb51 # depend on users
-	num_source=1438 # number of training data (source) 
-	num_target=840 # number of training data (target)
+	num_source=-1 # number of training data (source) 
+	num_target=-1 # number of training data (target)
 
 	path_data_source=$path_data_root$dataset_source'/'
 	path_data_target=$path_data_root$dataset_target'/'
@@ -64,8 +65,6 @@ then
 	train_source_list=$path_data_source'list_'$dataset_source'_'$dataset'-'$frame_type'.txt'
 	train_target_list=$path_data_target'list_'$dataset_target'_'$dataset'-'$frame_type'.txt'
 	val_list=$path_data_val'list_'$dataset_val'_'$dataset'-'$frame_type'.txt'
-
-	path_exp=$path_exp_root'Testexp'
 fi
 
 pretrained=none

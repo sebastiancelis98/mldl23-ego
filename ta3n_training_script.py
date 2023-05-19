@@ -131,8 +131,17 @@ def main():
     # === Data loading ===#
     print(Fore.CYAN + 'loading data......')
 
-    # data loading (always need to load the testing data)
-    val_segments = args.val_segments if args.val_segments > 0 else args.num_segments
+    source_set = EpicKitchensDataset(dataset_args.dataset.shift.split("-")[0], dataset_args.modality,
+                                     'train', dataset_args.dataset, None, None, None,
+                                     None, load_feat=True)
+    num_source = len(source_set)
+
+    target_set = EpicKitchensDataset(dataset_args.dataset.shift.split("-")[-1], dataset_args.modality,
+                                     'train', dataset_args.dataset, None, None, None,
+                                     None, load_feat=True)
+    num_target = len(target_set)
+    args.batch_size[1] = int(args.batch_size[0] * num_target / num_source)
+
     val_set = EpicKitchensDataset(dataset_args.dataset.shift.split("-")[-1], dataset_args.modality,
                                   'val', dataset_args.dataset, None, None, None,
                                   None, load_feat=True)
@@ -140,27 +149,15 @@ def main():
                                              num_workers=args.workers, pin_memory=True)
 
     if not args.evaluate:
-        source_set = EpicKitchensDataset(dataset_args.dataset.shift.split("-")[0], dataset_args.modality,
-                                         'train', dataset_args.dataset, None, None, None,
-                                         None, load_feat=True)
-
         source_sampler = torch.utils.data.sampler.RandomSampler(source_set)
         source_loader = torch.utils.data.DataLoader(
             source_set, batch_size=args.batch_size[0],
             shuffle=False, sampler=source_sampler, num_workers=args.workers, pin_memory=True)
 
-        target_set = EpicKitchensDataset(dataset_args.dataset.shift.split("-")[-1], dataset_args.modality,
-                                         'train', dataset_args.dataset, None, None, None,
-                                         None, load_feat=True)
-
         target_sampler = torch.utils.data.sampler.RandomSampler(target_set)
         target_loader = torch.utils.data.DataLoader(
             target_set, batch_size=args.batch_size[1],
             shuffle=False, sampler=target_sampler, num_workers=args.workers, pin_memory=True)
-
-    # calculate the number of videos to load for training in each list ==> make sure the iteration # of source & target are same
-    num_source = 1  #  sum(1 for i in open(args.train_source_list))
-    num_target = 1  # sum(1 for i in open(args.train_target_list))
 
     num_iter_source = num_source / args.batch_size[0]
     num_iter_target = num_target / args.batch_size[1]
@@ -169,7 +166,7 @@ def main():
     num_target_train = round(num_max_iter*args.batch_size[1]) if args.copy_list[1] == 'Y' else num_target
 
     # calculate the weight for each class
-    class_id_list = [1]  #  [int(line.strip().split(' ')[2]) for line in open(args.train_source_list)]
+    class_id_list = [video.label for video in source_set.video_list]
     class_id, class_data_counts = np.unique(np.array(class_id_list), return_counts=True)
     class_freq = (class_data_counts / class_data_counts.sum()).tolist()
 
