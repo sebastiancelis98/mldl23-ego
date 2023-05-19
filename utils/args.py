@@ -32,9 +32,14 @@ args = OmegaConf.load(os.path.join(conf_path, "default.yaml"))
 # Read the cli args
 cli_args = OmegaConf.from_cli()
 
+classifer_train_config = os.path.join(conf_path, "classifier_train.yaml")
+
 # read a specific config file
 if 'config' in cli_args and cli_args.config:
     conf_args = OmegaConf.load(cli_args.config)
+    args = OmegaConf.merge(args, conf_args)
+elif os.path.exists(classifer_train_config):
+    conf_args = OmegaConf.load(classifer_train_config)
     args = OmegaConf.merge(args, conf_args)
 else:
     conf_args = OmegaConf.load(os.path.join(conf_path, "debug.yaml"))

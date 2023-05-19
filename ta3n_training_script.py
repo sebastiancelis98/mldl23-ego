@@ -10,14 +10,14 @@ import torch.optim
 from torch.nn.utils import clip_grad_norm_
 
 from models.TA3N import TA3N
-from ta3n_loss import *
+from utils.ta3n_loss import *
 from utils.loaders import EpicKitchensDataset
 import math
 
 from colorama import init
 from colorama import Fore, Back, Style
 from utils.args import args as dataset_args
-from ta3n_opts import parser
+from utils.ta3n_opts import parser
 
 import numpy as np
 
@@ -30,6 +30,7 @@ init(autoreset=True)
 best_prec1 = 0
 gpu_count = torch.cuda.device_count()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 def main():
     global args, best_prec1
@@ -132,14 +133,14 @@ def main():
 
     # data loading (always need to load the testing data)
     val_segments = args.val_segments if args.val_segments > 0 else args.num_segments
-    val_set = EpicKitchensDataset(dataset_args.dataset.shift.split("-")[-1], args.modality,
+    val_set = EpicKitchensDataset(dataset_args.dataset.shift.split("-")[-1], dataset_args.modality,
                                   'val', dataset_args.dataset, None, None, None,
                                   None, load_feat=True)
     val_loader = torch.utils.data.DataLoader(val_set, batch_size=args.batch_size[2], shuffle=False,
                                              num_workers=args.workers, pin_memory=True)
 
     if not args.evaluate:
-        source_set = EpicKitchensDataset(dataset_args.dataset.shift.split("-")[0], args.modality,
+        source_set = EpicKitchensDataset(dataset_args.dataset.shift.split("-")[0], dataset_args.modality,
                                          'train', dataset_args.dataset, None, None, None,
                                          None, load_feat=True)
 
@@ -148,7 +149,7 @@ def main():
             source_set, batch_size=args.batch_size[0],
             shuffle=False, sampler=source_sampler, num_workers=args.workers, pin_memory=True)
 
-        target_set = EpicKitchensDataset(dataset_args.dataset.shift.split("-")[-1], args.modality,
+        target_set = EpicKitchensDataset(dataset_args.dataset.shift.split("-")[-1], dataset_args.modality,
                                          'train', dataset_args.dataset, None, None, None,
                                          None, load_feat=True)
 
@@ -156,10 +157,10 @@ def main():
         target_loader = torch.utils.data.DataLoader(
             target_set, batch_size=args.batch_size[1],
             shuffle=False, sampler=target_sampler, num_workers=args.workers, pin_memory=True)
-        
+
     # calculate the number of videos to load for training in each list ==> make sure the iteration # of source & target are same
-    num_source = 1 # sum(1 for i in open(args.train_source_list))
-    num_target = sum(1 for i in open(args.train_target_list))
+    num_source = 1  #  sum(1 for i in open(args.train_source_list))
+    num_target = 1  # sum(1 for i in open(args.train_target_list))
 
     num_iter_source = num_source / args.batch_size[0]
     num_iter_target = num_target / args.batch_size[1]
@@ -168,7 +169,7 @@ def main():
     num_target_train = round(num_max_iter*args.batch_size[1]) if args.copy_list[1] == 'Y' else num_target
 
     # calculate the weight for each class
-    class_id_list = [int(line.strip().split(' ')[2]) for line in open(args.train_source_list)]
+    class_id_list = [1]  #  [int(line.strip().split(' ')[2]) for line in open(args.train_source_list)]
     class_id, class_data_counts = np.unique(np.array(class_id_list), return_counts=True)
     class_freq = (class_data_counts / class_data_counts.sum()).tolist()
 
@@ -331,6 +332,10 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
     attn_epoch_source = torch.Tensor()
     attn_epoch_target = torch.Tensor()
     for i, ((source_data, source_label), (target_data, target_label)) in data_loader:
+
+        source_data = source_data[dataset_args.modality[0]]
+        target_data = target_data[dataset_args.modality[0]]
+
         # setup hyperparameters
         p = float(i + start_steps) / total_steps
         beta_dann = 2. / (1. + np.exp(-10 * p)) - 1
@@ -349,18 +354,18 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
             target_data = torch.cat((target_data, target_data_dummy))
 
         # add dummy tensors to make sure batch size can be divided by gpu #
-        if source_data.size(0) % gpu_count != 0:
+        if gpu_count > 0 and source_data.size(0) % gpu_count != 0:
             source_data_dummy = torch.zeros(gpu_count - source_data.size(0) % gpu_count, source_data.size(1), source_data.size(2))
             source_data = torch.cat((source_data, source_data_dummy))
-        if target_data.size(0) % gpu_count != 0:
+        if gpu_count > 0 and target_data.size(0) % gpu_count != 0:
             target_data_dummy = torch.zeros(gpu_count - target_data.size(0) % gpu_count, target_data.size(1), target_data.size(2))
             target_data = torch.cat((target_data, target_data_dummy))
 
         # measure data loading time
         data_time.update(time.time() - end)
 
-        source_label = source_label.cuda(non_blocking=True)  # pytorch 0.4.X
-        target_label = target_label.cuda(non_blocking=True)  # pytorch 0.4.X
+        source_label = source_label.to(device, non_blocking=True)
+        target_label = target_label.to(device, non_blocking=True)
 
         if args.baseline_type == 'frame':
             source_label_frame = source_label.unsqueeze(1).repeat(1, args.num_segments).view(-1)  # expand the size for all the frames
@@ -520,7 +525,7 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
                     target_domain_label = torch.ones(pred_domain_target_single.size(0)).long()
                     domain_label = torch.cat((source_domain_label, target_domain_label), 0)
 
-                    domain_label = domain_label.cuda(non_blocking=True)
+                    domain_label = domain_label.to(device, non_blocking=True)
 
                     pred_domain = torch.cat((pred_domain_source_single, pred_domain_target_single), 0)
                     pred_domain_all.append(pred_domain)
@@ -655,12 +660,12 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
                                        torch.cuda.LongTensor([11]).repeat(label_target_display.size(0))).long().cuda(non_blocking=True)
 
         label_source_display_new = label_source_1 + label_source_3 + label_source_11
-        id_source_show = ~torch.eq(label_source_display_new, 0).cuda(non_blocking=True)
+        id_source_show = ~torch.eq(label_source_display_new, 0).to(device, non_blocking=True)
         label_source_display_new = label_source_display_new[id_source_show]
         feat_source_display_new = feat_source_display[id_source_show]
 
         label_target_display_new = label_target_1 + label_target_3 + label_target_11
-        id_target_show = ~torch.eq(label_target_display_new, 0).cuda(non_blocking=True)
+        id_target_show = ~torch.eq(label_target_display_new, 0).to(device, non_blocking=True)
         label_target_display_new = label_target_display_new[id_target_show]
         feat_target_display_new = feat_target_display[id_target_show]
 
@@ -690,6 +695,8 @@ def validate(val_loader, model, criterion, num_class, epoch, log):
 
     for i, (val_data, val_label) in enumerate(val_loader):
 
+        val_data = val_data[dataset_args.modality[0]]
+
         val_size_ori = val_data.size()  # original shape
         batch_val_ori = val_size_ori[0]
 
@@ -699,11 +706,11 @@ def validate(val_loader, model, criterion, num_class, epoch, log):
             val_data = torch.cat((val_data, val_data_dummy))
 
         # add dummy tensors to make sure batch size can be divided by gpu #
-        if val_data.size(0) % gpu_count != 0:
+        if gpu_count > 0 and val_data.size(0) % gpu_count != 0:
             val_data_dummy = torch.zeros(gpu_count - val_data.size(0) % gpu_count, val_data.size(1), val_data.size(2))
             val_data = torch.cat((val_data, val_data_dummy))
 
-        val_label = val_label.cuda(non_blocking=True)
+        val_label = val_label.to(device, non_blocking=True)
         with torch.no_grad():
 
             if args.baseline_type == 'frame':
@@ -832,7 +839,7 @@ def accuracy(output, target, topk=(1,)):
 
     res = []
     for k in topk:
-        correct_k = correct[:k].view(-1).float().sum(0)
+        correct_k = correct[:k].reshape(-1).float().sum(0)
         res.append(correct_k.mul_(100.0 / batch_size))
     return res
 
