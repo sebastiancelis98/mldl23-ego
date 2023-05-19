@@ -169,7 +169,7 @@ def train(action_classifier, source_loader, target_loader, val_loader, device, n
             data[m] = (source_frames, target_frames, is_training)
 
         logits, _ = action_classifier.forward(data)
-        action_classifier.compute_loss(logits, source_label, loss_weight=1)
+        action_classifier.compute_loss(logits, source_label, loss_weight=1)s
         action_classifier.backward(retain_graph=False)
         action_classifier.compute_accuracy(logits, source_label)
 
