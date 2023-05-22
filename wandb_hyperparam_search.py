@@ -10,7 +10,7 @@ hyperparam_search_config = {
     'metric':
     {
         'goal': 'maximize',
-        'name': 'val_acc'
+        'name': 'best_acc'
     },
     'parameters':
     {
@@ -18,7 +18,7 @@ hyperparam_search_config = {
             "values": [30, 50]
         },
         "optimizer": {
-            "values": ["SGD", "Adam"]
+            "values": ["SGD"]
         },
         "fc_dim": {
             "values": [1024, 512, 2048]
@@ -30,7 +30,7 @@ hyperparam_search_config = {
             "values": [[15, 25], [10, 20]]
         },
         "weight_decay": {
-            "values": [1e-4, 1e-3, 1e-5, 5e-4]
+            "values": [1e-4, 1e-3, 1e-5]
         }
     }
 }
@@ -69,4 +69,4 @@ if __name__ == "__main__":
             sweep=hyperparam_search_config,
             project='mldl23-ego-ta3n',
         )
-        wandb.agent(sweep_id, function=ta3n_training_script.main, count=15)
+        wandb.agent(sweep_id, function=ta3n_training_script.main, count=30)
