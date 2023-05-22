@@ -6,7 +6,7 @@ wandb.login()
 
 # 2: Define the search space
 hyperparam_search_config = {
-    'method': 'random',
+    'method': 'grid',
     'metric':
     {
         'goal': 'maximize',
@@ -15,22 +15,26 @@ hyperparam_search_config = {
     'parameters':
     {
         'epochs': {
-            "values": [30, 50]
+            "values": [30]
         },
-        "optimizer": {
-            "values": ["SGD"]
+        'dataset': {
+            "values": [
+                {"shift": "D1-D3"},
+                {"shift": "D2-D3"},
+                {"shift": "D3-D2"},
+            ]
         },
         "fc_dim": {
-            "values": [1024, 512, 2048]
+            "values": [1024]
         },
         "lr": {
-            "values": [3e-2, 3e-3, 1.5e-2, 6e-2]
+            "values": [6e-2]
         },
-        "lr-steps": {
-            "values": [[15, 25], [10, 20]]
+        "lr-adaptive": {
+            "values": ["dann"]
         },
         "weight_decay": {
-            "values": [1e-4, 1e-3, 1e-5]
+            "values": [1e-4]
         }
     }
 }
@@ -40,7 +44,7 @@ dataset_shift_configuration = {
     'metric':
     {
         'goal': 'maximize',
-        'name': 'val_acc'
+        'name': 'best_acc'
     },
     'parameters':
     {
@@ -57,6 +61,21 @@ dataset_shift_configuration = {
         "frame_aggregation": {
             "values": ["avgpool", "trn-m"]
         },
+        'epochs': {
+            "values": [30]
+        },
+        "fc_dim": {
+            "values": [1024]
+        },
+        "lr": {
+            "values": [6e-2]
+        },
+        "lr-adaptive": {
+            "values": ["dann"]
+        },
+        "weight_decay": {
+            "values": [1e-4]
+        }
     }
 }
 
@@ -66,7 +85,7 @@ if __name__ == "__main__":
     else:
         # 3: Start the sweep
         sweep_id = wandb.sweep(
-            sweep=hyperparam_search_config,
+            sweep=dataset_shift_configuration,
             project='mldl23-ego-ta3n',
         )
-        wandb.agent(sweep_id, function=ta3n_training_script.main, count=30)
+        wandb.agent(sweep_id, function=ta3n_training_script.main)
