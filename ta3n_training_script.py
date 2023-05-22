@@ -7,6 +7,7 @@ import torch.nn.parallel
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 import torch.optim
+import wandb
 from torch.nn.utils import clip_grad_norm_
 
 from models.TA3N import TA3N
@@ -15,8 +16,8 @@ from utils.loaders import EpicKitchensDataset
 import math
 
 from colorama import init
-from colorama import Fore, Back, Style
-from utils.args import args as dataset_args
+from colorama import Fore, Back
+from utils.args import args as config_args
 from utils.ta3n_opts import parser
 
 import numpy as np
@@ -35,6 +36,22 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def main():
     global args, best_prec1
     args = parser.parse_args()
+
+    if config_args.wandb_name is not None:
+        wandb.init(
+            project="mldl23-ego-ta3n"
+        )
+        for key, val in wandb.config.items():
+            if key in args:
+                if isinstance(val, dict):
+                    args.__dict__[key].update(val)
+                else:
+                    args.__dict__[key] = val
+            if key in config_args:
+                if isinstance(val, dict):
+                    config_args[key].update(val)
+                else:
+                    config_args[key] = val
 
     print(Fore.GREEN + 'Baseline:', args.baseline_type)
     print(Fore.GREEN + 'Frame aggregation method:', args.frame_aggregation)
@@ -131,19 +148,19 @@ def main():
     # === Data loading ===#
     print(Fore.CYAN + 'loading data......')
 
-    source_set = EpicKitchensDataset(dataset_args.dataset.shift.split("-")[0], dataset_args.modality,
-                                     'train', dataset_args.dataset, None, None, None,
+    source_set = EpicKitchensDataset(config_args.dataset.shift.split("-")[0], config_args.modality,
+                                     'train', config_args.dataset, None, None, None,
                                      None, load_feat=True)
     num_source = len(source_set)
 
-    target_set = EpicKitchensDataset(dataset_args.dataset.shift.split("-")[-1], dataset_args.modality,
-                                     'train', dataset_args.dataset, None, None, None,
+    target_set = EpicKitchensDataset(config_args.dataset.shift.split("-")[-1], config_args.modality,
+                                     'train', config_args.dataset, None, None, None,
                                      None, load_feat=True)
     num_target = len(target_set)
     args.batch_size[1] = int(args.batch_size[0] * num_target / num_source)
 
-    val_set = EpicKitchensDataset(dataset_args.dataset.shift.split("-")[-1], dataset_args.modality,
-                                  'val', dataset_args.dataset, None, None, None,
+    val_set = EpicKitchensDataset(config_args.dataset.shift.split("-")[-1], config_args.modality,
+                                  'val', config_args.dataset, None, None, None,
                                   None, load_feat=True)
     val_loader = torch.utils.data.DataLoader(val_set, batch_size=args.batch_size[2], shuffle=False,
                                              num_workers=args.workers, pin_memory=True)
@@ -245,6 +262,11 @@ def main():
                 pass
                 # writer.add_text('Best_Accuracy', str(best_prec1), epoch)
 
+            if config_args.wandb_name is not None:
+                wandb.log({"val_acc": prec1}, step=int(epoch))
+                if is_best:
+                    wandb.log({"best_acc": best_prec1}, step=int(epoch))
+
             if args.save_model:
                 save_checkpoint({
                     'epoch': epoch,
@@ -330,8 +352,8 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
     attn_epoch_target = torch.Tensor()
     for i, ((source_data, source_label), (target_data, target_label)) in data_loader:
 
-        source_data = source_data[dataset_args.modality[0]]
-        target_data = target_data[dataset_args.modality[0]]
+        source_data = source_data[config_args.modality[0]]
+        target_data = target_data[config_args.modality[0]]
 
         # setup hyperparameters
         p = float(i + start_steps) / total_steps
@@ -692,7 +714,7 @@ def validate(val_loader, model, criterion, num_class, epoch, log):
 
     for i, (val_data, val_label) in enumerate(val_loader):
 
-        val_data = val_data[dataset_args.modality[0]]
+        val_data = val_data[config_args.modality[0]]
 
         val_size_ori = val_data.size()  # original shape
         batch_val_ori = val_size_ori[0]

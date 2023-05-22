@@ -2,7 +2,7 @@ action: train # train, validate or save
 name: train_final_classifier
 split: train
 batch_size: 64
-wandb_name: mldl23-ego
+wandb_name: mldl23-ego-ta3n
 wandb_dir: ./wandb
 
 train:
