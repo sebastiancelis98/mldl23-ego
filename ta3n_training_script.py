@@ -42,21 +42,23 @@ def main():
             project="mldl23-ego-ta3n"
         )
         for key, val in wandb.config.items():
-            if key in args:
-                if isinstance(val, dict):
-                    args.__dict__[key].update(val)
-                else:
-                    args.__dict__[key] = val
-            if key in config_args:
-                if isinstance(val, dict):
-                    config_args[key].update(val)
-                else:
-                    config_args[key] = val
+            sub_keys = key.split(".")
+            key1 = sub_keys[0]
+            if key1 in args:
+                args.__dict__[key] = val
+            elif key1 in config_args:
+                key2 = sub_keys[1]
+                config_args[key1][key2] = val
+            else:
+                continue
 
     print(Fore.GREEN + 'Baseline:', args.baseline_type)
     print(Fore.GREEN + 'Frame aggregation method:', args.frame_aggregation)
 
-    print(Fore.GREEN + 'target data usage:', args.use_target)
+    print(Fore.GREEN + 'Target data usage:', args.use_target)
+    print(Fore.GREEN + 'Adverserial discriminators activated:', args.place_adv)
+    print(Fore.GREEN + 'Attention entropy usage:', args.add_loss_DA)
+    
     if args.use_target == 'none':
         print(Fore.GREEN + 'no Domain Adaptation')
     else:

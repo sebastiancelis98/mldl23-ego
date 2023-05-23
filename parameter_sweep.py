@@ -48,18 +48,35 @@ dataset_shift_configuration = {
     },
     'parameters':
     {
-        'dataset': {
+        
+        "frame_aggregation": {
             "values": [
-                {"shift": "D1-D2"},
-                {"shift": "D1-D3"},
-                {"shift": "D2-D1"},
-                {"shift": "D2-D3"},
-                {"shift": "D3-D1"},
-                {"shift": "D3-D2"},
+                "avgpool",
+                "trn-m"]
+        },
+        "place_adv": {
+            "values": [
+                ["N", "N", "Y"],
+                ["N", "Y", "N"],
+                ["Y", "N", "N"],
+                ["Y", "Y", "Y"],
             ]
         },
-        "frame_aggregation": {
-            "values": ["avgpool", "trn-m"]
+        'dataset.shift': {
+            "values": [
+                "D1-D2",
+                # "D1-D3",
+                # "D2-D1",
+                # "D2-D3",
+                # "D3-D1",
+                # "D3-D2",
+            ]
+        },
+        "use_attn": {
+            "values": ["none"], #["TransAttn"]
+        },
+        "add_loss_DA": {
+            "values": ["none"] # ["attentive_entropy"],
         },
         'epochs': {
             "values": [30]
