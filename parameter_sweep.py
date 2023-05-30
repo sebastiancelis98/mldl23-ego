@@ -51,16 +51,17 @@ dataset_shift_configuration = {
 
         "frame_aggregation": {
             "values": [
-                # "avgpool",
+                "avgpool",
                 "trn-m"
             ]
         },
         "place_adv": {
             "values": [
+                ["N", "N", "N"]
                 # ["N", "N", "Y"],
                 # ["N", "Y", "N"],
                 # ["Y", "N", "N"],
-                ["Y", "Y", "Y"],
+                # ["Y", "Y", "Y"],
             ]
         },
         'dataset.shift': {
@@ -75,22 +76,33 @@ dataset_shift_configuration = {
         },
         "use_attn": {
             "values": [
-                # "none",
-                "TransAttn"
+                "none",
+                # "TransAttn"
             ],
         },
         "add_loss_DA": {
             "values": [
-                # "none",
-                "attentive_entropy",
+                "none",
+                # "attentive_entropy",
             ]
         },
         'epochs': {
-            "values": [40]
+            "values": [30]
         },
         "lr": {
-            "values": [3e-2, 6e-2, 1.5e-2, 0.1]
+            "values": [3e-2]
         },
+        "train.loss_weights": {
+            "values": [
+                [1, 1, 1, 1, 0.003],  # Original
+                # [1, 0.5, 0.5, 0.5, 0.0015],
+                # [1, 1, 1, 1, 0.03],
+                # [0.5, 1, 1, 1, 0.0015],
+                # [0.5, 1, 1, 1, 0.003],
+                # [1, 0.5, 0.5, 0.5, 0.03]
+            ]
+        }
+
     }
 }
 

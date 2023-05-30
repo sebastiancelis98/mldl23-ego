@@ -160,6 +160,7 @@ def main():
                                      None, load_feat=True)
     num_target = len(target_set)
     args.batch_size[1] = int(args.batch_size[0] * num_target / num_source)
+    print(f'Set the target batch size to {args.batch_size[1]}!')
 
     val_set = EpicKitchensDataset(config_args.dataset.shift.split("-")[-1], config_args.modality,
                                   'val', config_args.dataset, None, None, None,
@@ -456,6 +457,8 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
         out = out_source
         label = label_source
 
+        loss_weights = config_args["train"]["loss_weights"]
+
         if args.use_target == 'Sv':
             out = torch.cat((out, out_target))
             label = torch.cat((label, label_target))
@@ -463,6 +466,8 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
         loss_classification = criterion(out, label)
         if args.ens_DA == 'MCD' and args.use_target != 'none':
             loss_classification += criterion(out_source_2, label)
+
+        loss_classification *= loss_weights[0] if loss_weights is not None else 1
 
         losses_c.update(loss_classification.item(), out_source.size(0))  # pytorch 0.4.X
         loss = loss_classification
@@ -557,6 +562,7 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
                     if args.pred_normalize == 'Y':  # use the uncertainly method (in construction......)
                         pred_domain = pred_domain / pred_domain.var().log()
                     loss_adversarial_single = criterion_domain(pred_domain, domain_label)
+                    loss_adversarial_single *= loss_weights[l + 1] if loss_weights is not None else 1
 
                     loss_adversarial += loss_adversarial_single
 
@@ -586,7 +592,7 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
         if args.add_loss_DA == 'attentive_entropy' and args.use_attn != 'none' and args.use_target != 'none':
             loss_entropy = attentive_entropy(torch.cat((out_source, out_target), 0), pred_domain_all[1])
             losses_e.update(loss_entropy.item(), out_target.size(0))
-            loss += gamma * loss_entropy
+            loss += loss_entropy * loss_weights[-1] if loss_weights is not None else 1
 
         # measure accuracy and record loss
         pred = out

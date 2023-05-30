@@ -14,6 +14,7 @@ train:
     RGB: True
   num_frames_per_clip: # number of frames adopted in training for each modality
     RGB: 16
+  loss_weights: [1, 1, 1, 1, 0.003]
 
 test:
   num_clips: 5 # number of clips in testing
