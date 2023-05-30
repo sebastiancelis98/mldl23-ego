@@ -48,51 +48,49 @@ dataset_shift_configuration = {
     },
     'parameters':
     {
-        
+
         "frame_aggregation": {
             "values": [
-                "avgpool",
-                "trn-m"]
+                # "avgpool",
+                "trn-m"
+            ]
         },
         "place_adv": {
             "values": [
-                ["N", "N", "Y"],
-                ["N", "Y", "N"],
-                ["Y", "N", "N"],
+                # ["N", "N", "Y"],
+                # ["N", "Y", "N"],
+                # ["Y", "N", "N"],
                 ["Y", "Y", "Y"],
             ]
         },
         'dataset.shift': {
             "values": [
                 "D1-D2",
-                # "D1-D3",
-                # "D2-D1",
-                # "D2-D3",
-                # "D3-D1",
-                # "D3-D2",
+                "D1-D3",
+                "D2-D1",
+                "D2-D3",
+                "D3-D1",
+                "D3-D2",
             ]
         },
         "use_attn": {
-            "values": ["none"], #["TransAttn"]
+            "values": [
+                # "none",
+                "TransAttn"
+            ],
         },
         "add_loss_DA": {
-            "values": ["none"] # ["attentive_entropy"],
+            "values": [
+                # "none",
+                "attentive_entropy",
+            ]
         },
         'epochs': {
-            "values": [30]
-        },
-        "fc_dim": {
-            "values": [1024]
+            "values": [40]
         },
         "lr": {
-            "values": [6e-2]
+            "values": [3e-2, 6e-2, 1.5e-2, 0.1]
         },
-        "lr-adaptive": {
-            "values": ["dann"]
-        },
-        "weight_decay": {
-            "values": [1e-4]
-        }
     }
 }
 
