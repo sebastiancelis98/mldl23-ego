@@ -89,7 +89,7 @@ use_bn=none # none | AdaBN | AutoDIAL
 add_loss_DA=attentive_entropy # none | target_entropy | attentive_entropy
 gamma=0.003 # U->H: 0.003 | H->U: 0.3
 
-ens_DA=MCC # none | MCD | MCC | AFN
+ens_DA=AFN # none | MCD | MCC | AFN
 mu=0
 
 # parameters for architectures

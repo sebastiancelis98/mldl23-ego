@@ -445,16 +445,32 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
             target_softmax_out = nn.Softmax(dim=1)(out_target)
             target_entropy_weight = MCC_entropy(target_softmax_out).detach()
             target_entropy_weight = 1 + torch.exp(-target_entropy_weight)
-            target_entropy_weight = args.batch_size[1] * target_entropy_weight / torch.sum(target_entropy_weight) #Question: tran_bs can be batch_size * num_segment ?
+            target_entropy_weight = args.batch_size[1] * args.num_segments * target_entropy_weight / torch.sum(target_entropy_weight) #Question: tran_bs can be batch_size * num_segment ?
             cov_matrix_t = target_softmax_out.mul(target_entropy_weight.view(-1,1)).transpose(1,0).mm(target_softmax_out)
             cov_matrix_t = cov_matrix_t / torch.sum(cov_matrix_t, dim=1)
             mcc_loss = (torch.sum(cov_matrix_t) - torch.trace(cov_matrix_t)) / num_class
             loss_classification += mcc_loss
         elif args.ens_DA =='AFN':
-            s_fc2_L2norm_loss = get_L2norm_loss_self_driven(feat_source) #May be remove the shared layers ? feat_source[:-args.add_fc]
-            t_fc2_L2norm_loss = get_L2norm_loss_self_driven(feat_target)
-            total_fc_L2norm_loss =  s_fc2_L2norm_loss + t_fc2_L2norm_loss
-            loss_classification += total_fc_L2norm_loss
+            for l  in range(0,args.add_fc +2):
+                size_loss = min(feat_source[l].size(0), feat_target[l].size(0)) 
+                total_fc_L2norm_loss = 0
+                feat_source_sel = feat_source[l][:size_loss]
+                feat_target_sel = feat_target[l][:size_loss]
+
+                # break into multiple batches to avoid "out of memory" issue
+                size_batch = min(256, feat_source_sel.size(0))
+                feat_source_sel = feat_source_sel.view((-1, size_batch) + feat_source_sel.size()[1:])
+                feat_target_sel = feat_target_sel.view((-1, size_batch) + feat_target_sel.size()[1:])
+                size_loss = min(feat_source_sel[l].size(0), feat_target_sel[l].size(0))  # choose the smaller number
+                for t in range(size_loss):
+                    s_fc2_L2norm_loss = get_L2norm_loss_self_driven(feat_source_sel[t]) #May be remove the shared layers ? feat_source[:-args.add_fc]
+                    t_fc2_L2norm_loss = get_L2norm_loss_self_driven(feat_target_sel[t])
+                    local_fc_L2norm_loss =  s_fc2_L2norm_loss + t_fc2_L2norm_loss
+                    total_fc_L2norm_loss += local_fc_L2norm_loss
+
+                total_fc_L2norm_loss = total_fc_L2norm_loss/size_loss
+                loss_classification += total_fc_L2norm_loss
+
 
 
         losses_c.update(loss_classification.item(), out_source.size(0))  # pytorch 0.4.X
