@@ -440,6 +440,24 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
         loss_classification = criterion(out, label)
         if args.ens_DA == 'MCD' and args.use_target != 'none':
             loss_classification += criterion(out_source_2, label)
+        elif args.ens_DA =='MCC':
+            # apply softmax
+            target_softmax_out = nn.Softmax(dim=1)(out_target)
+            target_entropy_weight = loss.Entropy(target_softmax_out).detach()
+            target_entropy_weight = 1 + torch.exp(-target_entropy_weight)
+            target_entropy_weight = args.batch_size[1] * target_entropy_weight / torch.sum(target_entropy_weight) #Question: tran_bs can be batch_size * num_segment ?
+            cov_matrix_t = target_softmax_out.mul(target_entropy_weight.view(-1,1)).transpose(1,0).mm(target_softmax_out)
+            cov_matrix_t = cov_matrix_t / torch.sum(cov_matrix_t, dim=1)
+            mcc_loss = (torch.sum(cov_matrix_t) - torch.trace(cov_matrix_t)) / num_class
+            loss_classification += mcc_loss
+        elif args.ens_DA =='AFN':
+            s_fc2_L2norm_loss = get_L2norm_loss_self_driven(feat_source) #May be remove the shared layers ? feat_source[:-args.add_fc]
+            t_fc2_L2norm_loss = get_L2norm_loss_self_driven(feat_target)
+            total_fc_L2norm_loss =  s_fc2_L2norm_loss + t_fc2_L2norm_loss
+            loss_classification += total_fc_L2norm_loss
+            
+            pass
+            
 
         losses_c.update(loss_classification.item(), out_source.size(0))  # pytorch 0.4.X
         loss = loss_classification
