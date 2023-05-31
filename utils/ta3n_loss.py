@@ -129,3 +129,10 @@ def JAN(source_list, target_list, kernel_muls=[2.0, 2.0], kernel_nums=[2, 5], fi
         raise ValueError('ver == 1 or 2')
 
     return loss
+def get_L2norm_loss_self_driven(x):
+    weight_L2norm = 0.05
+    radius = x.norm(p=2, dim=1).detach()
+    assert radius.requires_grad == False
+    radius = radius + 1.0
+    l = ((x.norm(p=2, dim=1) - radius) ** 2).mean()
+    return weight_L2norm * l
