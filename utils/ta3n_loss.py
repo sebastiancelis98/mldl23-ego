@@ -136,3 +136,10 @@ def get_L2norm_loss_self_driven(x):
     radius = radius + 1.0
     l = ((x.norm(p=2, dim=1) - radius) ** 2).mean()
     return weight_L2norm * l
+
+def MCC_entropy(input_):
+    bs = input_.size(0)
+    epsilon = 1e-5
+    entropy = -input_ * torch.log(input_ + epsilon)
+    entropy = torch.sum(entropy, dim=1)
+    return entropy
