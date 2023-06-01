@@ -14,7 +14,7 @@ frame_aggregation=avgpool # method to integrate the frame-level features (avgpoo
 add_fc=1
 fc_dim=1024
 arch=I3D
-use_target=none # none | Sv | uSv
+use_target=uSv # none | Sv | uSv
 share_params=Y # Y | N
 
 if [ "$use_target" == "none" ] 

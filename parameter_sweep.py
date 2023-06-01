@@ -57,11 +57,11 @@ dataset_shift_configuration = {
         },
         "place_adv": {
             "values": [
-                ["N", "N", "N"]
-                # ["N", "N", "Y"],
-                # ["N", "Y", "N"],
-                # ["Y", "N", "N"],
-                # ["Y", "Y", "Y"],
+                # ["N", "N", "N"]
+                #["N", "N", "Y"],
+                #["N", "Y", "N"],
+                #["Y", "N", "N"],
+                ["Y", "Y", "Y"],
             ]
         },
         'dataset.shift': {
@@ -76,14 +76,14 @@ dataset_shift_configuration = {
         },
         "use_attn": {
             "values": [
-                "none",
-                # "TransAttn"
+                # "none",
+                "TransAttn"
             ],
         },
         "add_loss_DA": {
             "values": [
-                "none",
-                # "attentive_entropy",
+                #"none",
+                "attentive_entropy",
             ]
         },
         'epochs': {
