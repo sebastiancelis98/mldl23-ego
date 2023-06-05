@@ -46,7 +46,7 @@ parser.add_argument('--dis_DA', type=str, default='none', choices=['none', 'DAN'
 parser.add_argument('--adv_DA', type=str, default='none', choices=['none', 'RevGrad'],
                     help='adversarial method for DA')
 parser.add_argument('--use_bn', type=str, default='none', choices=['none', 'AdaBN', 'AutoDIAL'], help='normalization-based methods')
-parser.add_argument('--ens_DA', type=str, default='none', choices=['none', 'MCD','MCC','AFN'], help='ensembling-based methods')
+parser.add_argument('--ens_DA', type=str, default='none', choices=['none', 'MCD','MCC','DSAN'], help='ensembling-based methods')
 parser.add_argument('--use_attn_frame', type=str, default='none', choices=['none', 'TransAttn', 'general', 'DotProduct'], help='attention-mechanism for frames only')
 parser.add_argument('--use_attn', type=str, default='none', choices=['none', 'TransAttn', 'general', 'DotProduct'], help='attention-mechanism')
 parser.add_argument('--n_attn', type=int, default=1, help='number of discriminators for transferable attention')
