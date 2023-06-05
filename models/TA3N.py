@@ -609,7 +609,7 @@ class TA3N(nn.Module):
 
             feat_fc_source = self.relu(feat_fc_source)
             feat_fc_target = self.relu(feat_fc_target)
-            feat_fc_source = self.dropout_i(feat_fc_source)
+            l = self.dropout_i(feat_fc_source)
             feat_fc_target = self.dropout_i(feat_fc_target)
 
             # reshape ==> 1st dim is the batch size

@@ -64,6 +64,8 @@ def main():
 
     # === initialize the model ===#
     print(Fore.CYAN + 'preparing the model......')
+    lmmd_loss = LMMD_loss(class_num=num_class)
+
     model = TA3N(num_class, args.baseline_type, args.frame_aggregation, args.modality,
                  train_segments=args.num_segments, val_segments=args.val_segments,
                  base_model=args.arch, path_pretrained=args.pretrained,
@@ -221,7 +223,7 @@ def main():
 
         # train for one epoch
         loss_c, attn_epoch_source, attn_epoch_target = train(
-            num_class, source_loader, target_loader, model, criterion, criterion_domain, optimizer, epoch, train_file, train_short_file, alpha, beta, gamma, mu)
+            num_class, source_loader, target_loader, model, criterion, criterion_domain, optimizer, epoch, train_file, train_short_file, alpha, beta, gamma, mu,lmmd_loss)
 
         if args.save_attention >= 0:
             attn_source_all = torch.cat((attn_source_all, attn_epoch_source.unsqueeze(0)))  # save the attention values
@@ -292,7 +294,7 @@ def main():
         np.savetxt('attn_target_' + str(args.save_attention) + '.log', attn_target_all.cpu().detach().numpy(), fmt="%s")
 
 
-def train(num_class, source_loader, target_loader, model, criterion, criterion_domain, optimizer, epoch, log, log_short, alpha, beta, gamma, mu):
+def train(num_class, source_loader, target_loader, model, criterion, criterion_domain, optimizer, epoch, log, log_short, alpha, beta, gamma, mu,lmmd_loss):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses_a = AverageMeter()  # adversarial loss
@@ -456,6 +458,10 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
             total_fc_L2norm_loss =  s_fc2_L2norm_loss + t_fc2_L2norm_loss
             loss_classification += total_fc_L2norm_loss
 
+        elif args.ens_DA =='DSAN':
+            loss_lmmd = lmmd_loss.get_loss(feat_source, feat_target, source_label, torch.nn.functional.softmax(out_target, dim=1))
+            lambd = 2 / (1 + math.exp(-10 * (epoch) / args.nepoch)) - 1
+            loss_classification += lambd * loss_lmmd
 
         losses_c.update(loss_classification.item(), out_source.size(0))  # pytorch 0.4.X
         loss = loss_classification
