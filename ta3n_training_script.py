@@ -305,7 +305,7 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
     losses = AverageMeter()
     top1 = AverageMeter()
     top5 = AverageMeter()
-
+    lmmd_loss = LMMD_loss()  # Create an instance of your custom loss function
     if args.no_partialbn:
         model.module.partialBN(False)
     else:
@@ -474,10 +474,42 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
                 loss_classification += total_fc_L2norm_loss
 
 
-        elif args.ens_DA =='DSAN':
-            loss_lmmd = lmmd_loss.get_loss(feat_source, feat_target, source_label, torch.nn.functional.softmax(out_target, dim=1),args.batch_size[0])
-            lambd = 2 / (1 + math.exp(-10 * (epoch) / args.nepoch)) - 1
-            loss_classification += lambd * loss_lmmd
+
+        elif args.ens_DA == 'DSAN':
+            feat_source_sel = feat_source[:-args.add_fc]
+            feat_target_sel = feat_target[:-args.add_fc]
+
+            size_loss = min(feat_source_sel[0].size(0), feat_target_sel[0].size(0))  # choose the smaller number
+            feat_source_sel = [feat[:size_loss] for feat in feat_source_sel]
+            feat_target_sel = [feat[:size_loss] for feat in feat_target_sel]
+
+            source_label_sel = source_label.tolist()
+
+            # Calculate the number of elements per inner list
+            inner_list_size = len(source_label_sel) // size_loss
+
+            # Reshape source_label_sel into a list of lists with consistent size
+            source_label_sel = [source_label_sel[i:i+inner_list_size] for i in range(0, len(source_label_sel), inner_list_size)]
+
+            target_label_sel = torch.nn.functional.softmax(out_target, dim=1)
+            target_label_sel = target_label_sel.tolist()
+
+            # Reshape target_label_sel to have the desired shape
+            target_label_sel = [target_label_sel[i:i+size_loss] for i in range(0, len(target_label_sel), size_loss)]
+
+            # Convert the target_label_sel to a tensor
+            target_label_sel = torch.tensor(target_label_sel)
+            source_label_sel = torch.tensor(source_label_sel)
+
+
+            loss_lmmd = lmmd_loss.get_loss(feat_source_sel, feat_target_sel, source_label_sel, target_label_sel)
+
+            if loss_lmmd.numel() > 0:
+                lambd = 2 / (1 + math.exp(-10 * (epoch) / args.epochs)) - 1
+                loss_classification += lambd * loss_lmmd.item()
+                print("LMMD used")
+
+
 
         losses_c.update(loss_classification.item(), out_source.size(0))  # pytorch 0.4.X
         loss = loss_classification

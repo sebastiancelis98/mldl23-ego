@@ -155,8 +155,8 @@ class LMMD_loss(nn.Module):
         self.fix_sigma = fix_sigma
         self.kernel_type = kernel_type
 
-    def guassian_kernel(self, source, target, kernel_mul=2.0, kernel_num=5, fix_sigma=None):
-        n_samples = int(source.size()[0]) + int(target.size()[0])
+    def guassian_kernel(self, batch_size,source, target, kernel_mul=2.0, kernel_num=5, fix_sigma=None):
+        n_samples = int(batch_size) + int(batch_size)
         total = torch.cat([source, target], dim=0)
         total0 = total.unsqueeze(0).expand(
             int(total.size(0)), int(total.size(0)), int(total.size(1)))
@@ -174,23 +174,40 @@ class LMMD_loss(nn.Module):
                       for bandwidth_temp in bandwidth_list]
         return sum(kernel_val)
 
-    def get_loss(self, source, target, s_label, t_label,batch_size):
-        weight_ss, weight_tt, weight_st = self.cal_weight(
-            s_label, t_label, batch_size=batch_size, class_num=self.class_num)
-        weight_ss = torch.from_numpy(weight_ss).cuda()
-        weight_tt = torch.from_numpy(weight_tt).cuda()
-        weight_st = torch.from_numpy(weight_st).cuda()
+    def get_loss(self, source_list, target_list, s_label_list, t_label_list):
+        batch_size = int(source_list[0].size()[0])
+        layer_num = len(source_list)
+        loss = torch.Tensor([0]).cpu()
+        for i in range(layer_num):
+            source = source_list[i]   
+            target = target_list[i]
+            s_label = s_label_list[i]
 
-        kernels = self.guassian_kernel(source, target,
-                                kernel_mul=self.kernel_mul, kernel_num=self.kernel_num, fix_sigma=self.fix_sigma)
-        loss = torch.Tensor([0]).cuda()
-        if torch.sum(torch.isnan(sum(kernels))):
-            return loss
-        SS = kernels[:batch_size, :batch_size]
-        TT = kernels[batch_size:, batch_size:]
-        ST = kernels[:batch_size, batch_size:]
+            if i < len(t_label_list):
+                t_label = t_label_list[i]
+            else:
+                # Handle the case when t_label_list doesn't have enough elements
+                t_label = None
+                return loss
 
-        loss += torch.sum(weight_ss * SS + weight_tt * TT - 2 * weight_st * ST)
+
+            t_label = t_label_list[i]
+            weight_ss, weight_tt, weight_st = self.cal_weight(
+                s_label, t_label, batch_size=batch_size, class_num=self.class_num)
+            weight_ss = torch.from_numpy(weight_ss).cpu()
+            weight_tt = torch.from_numpy(weight_tt).cpu()
+            weight_st = torch.from_numpy(weight_st).cpu()
+
+            kernels = self.guassian_kernel(batch_size,source, target,
+                                    kernel_mul=self.kernel_mul, kernel_num=self.kernel_num, fix_sigma=self.fix_sigma)
+
+            if torch.sum(torch.isnan(sum(kernels))):
+                return loss
+            SS = kernels[:batch_size, :batch_size]
+            TT = kernels[batch_size:, batch_size:]
+            ST = kernels[:batch_size, batch_size:]
+
+            loss += torch.sum(weight_ss * SS + weight_tt * TT - 2 * weight_st * ST)
         return loss
 
     def convert_to_onehot(self, sca_label, class_num=8):

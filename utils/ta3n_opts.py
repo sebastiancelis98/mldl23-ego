@@ -72,7 +72,7 @@ parser.add_argument('--place_adv', default=['Y', 'Y', 'Y'], type=str, nargs="+",
 parser.add_argument('--pretrain_source', default=False, action="store_true", help='perform source-only training before DA')
 parser.add_argument('--epochs', default=100, type=int, metavar='N',
                     help='number of total epochs to run')
-parser.add_argument('-b', '--batch_size', default=[32, 28, 64], type=int, nargs="+",
+parser.add_argument('-b', '--batch_size', default=[32, 32, 32], type=int, nargs="+",
                     metavar='N', help='mini-batch size ([source, target, testing])')
 parser.add_argument('--lr', '--learning_rate', default=0.0001, type=float,
                     metavar='LR', help='initial learning rate')
