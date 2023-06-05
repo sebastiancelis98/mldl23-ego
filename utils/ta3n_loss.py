@@ -174,8 +174,7 @@ class LMMD_loss(nn.Module):
                       for bandwidth_temp in bandwidth_list]
         return sum(kernel_val)
 
-    def get_loss(self, source, target, s_label, t_label):
-        batch_size = source.size()[0]
+    def get_loss(self, source, target, s_label, t_label,batch_size):
         weight_ss, weight_tt, weight_st = self.cal_weight(
             s_label, t_label, batch_size=batch_size, class_num=self.class_num)
         weight_ss = torch.from_numpy(weight_ss).cuda()

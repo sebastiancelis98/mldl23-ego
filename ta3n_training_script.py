@@ -475,7 +475,7 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
 
 
         elif args.ens_DA =='DSAN':
-            loss_lmmd = lmmd_loss.get_loss(feat_source, feat_target, source_label, torch.nn.functional.softmax(out_target, dim=1))
+            loss_lmmd = lmmd_loss.get_loss(feat_source, feat_target, source_label, torch.nn.functional.softmax(out_target, dim=1),args.batch_size[0])
             lambd = 2 / (1 + math.exp(-10 * (epoch) / args.nepoch)) - 1
             loss_classification += lambd * loss_lmmd
 
