@@ -478,20 +478,22 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
         elif args.ens_DA == 'DSAN':
             feat_source_sel = feat_source[:-args.add_fc]
             feat_target_sel = feat_target[:-args.add_fc]
-
+            print(f"feat_target_sel:{len(feat_target_sel)}")
             size_loss = min(feat_source_sel[0].size(0), feat_target_sel[0].size(0))  # choose the smaller number
             feat_source_sel = [feat[:size_loss] for feat in feat_source_sel]
             feat_target_sel = [feat[:size_loss] for feat in feat_target_sel]
-
+            print(f"feat_target_sel2:{len(feat_target_sel)}")
             source_label_sel = source_label.tolist()
+            print(f"source_label_sel:{len(source_label_sel)}")
 
             # Calculate the number of elements per inner list
             inner_list_size = len(source_label_sel) // size_loss
 
             # Reshape source_label_sel into a list of lists with consistent size
             source_label_sel = [source_label_sel[i:i+inner_list_size] for i in range(0, len(source_label_sel), inner_list_size)]
-
+            print(str(size_loss))
             target_label_sel = torch.nn.functional.softmax(out_target, dim=1)
+            print(target_label_sel.size())
             target_label_sel = target_label_sel.tolist()
 
             # Reshape target_label_sel to have the desired shape
@@ -500,6 +502,8 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
             # Convert the target_label_sel to a tensor
             target_label_sel = torch.tensor(target_label_sel)
             source_label_sel = torch.tensor(source_label_sel)
+            target_label_sel = torch.squeeze(target_label_sel, dim=0)
+            print(target_label_sel.shape)
 
 
             loss_lmmd = lmmd_loss.get_loss(feat_source_sel, feat_target_sel, source_label_sel, target_label_sel)

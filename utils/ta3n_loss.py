@@ -174,24 +174,19 @@ class LMMD_loss(nn.Module):
                       for bandwidth_temp in bandwidth_list]
         return sum(kernel_val)
 
-    def get_loss(self, source_list, target_list, s_label_list, t_label_list):
-        batch_size = int(source_list[0].size()[0])
-        layer_num = len(source_list)
+    def get_loss(self, feat_source, feat_target, s_label_list, t_label_list):
+        # batch_size = int(source_list[0].size()[0])
+        # layer_num = len(source_list)
         loss = torch.Tensor([0]).cpu()
-        for i in range(layer_num):
-            source = source_list[i]   
-            target = target_list[i]
-            s_label = s_label_list[i]
-
-            if i < len(t_label_list):
-                t_label = t_label_list[i]
-            else:
-                # Handle the case when t_label_list doesn't have enough elements
-                t_label = None
-                return loss
+        for l in range(4):
+            size_loss = min(feat_source[l].size(0), feat_target[l].size(0))
+            batch_size = size_loss
+            t_label = t_label_list[l*size_loss:(l+1)*size_loss]
+            s_label = s_label_list[l*size_loss:(l+1)*size_loss]
 
 
-            t_label = t_label_list[i]
+
+
             weight_ss, weight_tt, weight_st = self.cal_weight(
                 s_label, t_label, batch_size=batch_size, class_num=self.class_num)
             weight_ss = torch.from_numpy(weight_ss).cpu()
