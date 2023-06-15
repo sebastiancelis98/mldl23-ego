@@ -24,7 +24,7 @@ test:
 
 dataset:
   annotations_path: train_val
-  shift: D1-D2
+  shift: D2-D3
   workers: 4
   stride: 2
   resolution: 224

@@ -72,7 +72,7 @@ pretrained=none
 
 #====== parameters for algorithms ======#
 # parameters for DA approaches
-dis_DA=none # none | DAN | JAN
+dis_DA=none # none | DAN | JAN | DSAN
 alpha=0 # depend on users
 
 adv_pos_0=Y # Y | N (discriminator for relation features)
@@ -89,7 +89,7 @@ use_bn=none # none | AdaBN | AutoDIAL
 add_loss_DA=attentive_entropy # none | target_entropy | attentive_entropy
 gamma=0.003 # U->H: 0.003 | H->U: 0.3
 
-ens_DA=DSAN # none | MCD | MCC | AFN
+ens_DA=MCC # none | MCD | MCC | AFN
 mu=0
 
 # parameters for architectures

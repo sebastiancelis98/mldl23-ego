@@ -41,7 +41,7 @@ parser.add_argument('--n_ts', type=int, default=5, help='number of temporal segm
 parser.add_argument('--share_params', type=str, default='Y', choices=['Y', 'N'])
 parser.add_argument('--use_target', type=str, default='none', choices=['none', 'Sv', 'uSv'],
                     help='the method to use target data (not use | supervised | unsupervised)')
-parser.add_argument('--dis_DA', type=str, default='none', choices=['none', 'DAN', 'JAN', 'CORAL'],
+parser.add_argument('--dis_DA', type=str, default='none', choices=['none', 'DAN', 'JAN', 'CORAL', 'DSAN'],
                     help='discrepancy method for DA')
 parser.add_argument('--adv_DA', type=str, default='none', choices=['none', 'RevGrad'],
                     help='adversarial method for DA')

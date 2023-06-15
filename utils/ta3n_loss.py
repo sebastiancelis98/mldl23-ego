@@ -92,6 +92,76 @@ def mmd_rbf(source, target, kernel_mul=2.0, kernel_num=5, fix_sigma=None, ver=2)
         raise ValueError('ver == 1 or 2')
 
     return loss
+def lmmd_convert_to_onehot(sca_label, class_num=8):
+        return np.eye(class_num)[sca_label]
+def lmmd_cal_weight(s_label, t_label, batch_size=32, class_num=8):
+    #batch_size = s_label.size()[0]
+    s_sca_label = s_label.cpu().data.numpy()
+    s_vec_label = lmmd_convert_to_onehot(s_sca_label, class_num=class_num)
+    s_sum = np.sum(s_vec_label, axis=0).reshape(1, class_num)
+    s_sum[s_sum == 0] = 100
+    s_vec_label = s_vec_label / s_sum
+
+    t_sca_label = t_label.cpu().data.max(1)[1].numpy()
+    t_vec_label = t_label.cpu().data.numpy()
+    t_sum = np.sum(t_vec_label, axis=0).reshape(1, class_num)
+    t_sum[t_sum == 0] = 100
+    t_vec_label = t_vec_label / t_sum
+
+    index = list(set(s_sca_label) & set(t_sca_label))
+    mask_arr = np.zeros((batch_size, class_num))
+    mask_arr[:, index] = 1
+    t_vec_label = t_vec_label * mask_arr
+    s_vec_label = s_vec_label * mask_arr
+
+    weight_ss = np.matmul(s_vec_label, s_vec_label.T)
+    weight_tt = np.matmul(t_vec_label, t_vec_label.T)
+    weight_st = np.matmul(s_vec_label, t_vec_label.T)
+
+    length = len(index)
+    if length != 0:
+        weight_ss = weight_ss / length
+        weight_tt = weight_tt / length
+        weight_st = weight_st / length
+    else:
+        weight_ss = np.array([0])
+        weight_tt = np.array([0])
+        weight_st = np.array([0])
+    return weight_ss.astype('float32'), weight_tt.astype('float32'), weight_st.astype('float32')
+
+def lmmd_rbf(source, target, weight_ss, weight_tt, weight_st, kernel_mul=2.0, kernel_num=5, fix_sigma=None, ver=2):
+    batch_size = int(source.size()[0])
+    kernels = guassian_kernel(source, target, kernel_mul=kernel_mul, kernel_num=kernel_num, fix_sigma=fix_sigma)
+    weight_ss = torch.from_numpy(weight_ss).cpu()
+    weight_tt = torch.from_numpy(weight_tt).cpu()
+    weight_st = torch.from_numpy(weight_st).cpu()
+    loss = torch.Tensor([0]).cpu()
+
+    # if ver == 1:
+    #     for i in range(batch_size):
+    #         s1, s2 = i, (i + 1) % batch_size
+    #         t1, t2 = s1 + batch_size, s2 + batch_size
+    #         loss += kernels[s1, s2] + kernels[t1, t2]
+    #         loss -= kernels[s1, t2] + kernels[s2, t1]
+    #     loss = loss.abs_() / float(batch_size)
+    # elif ver == 2:
+    #     XX = kernels[:batch_size, :batch_size]
+    #     YY = kernels[batch_size:, batch_size:]
+    #     XY = kernels[:batch_size, batch_size:]
+    #     YX = kernels[batch_size:, :batch_size]
+    #     loss = torch.mean(XX + YY - XY - YX)
+    # else:
+    #     raise ValueError('ver == 1 or 2')
+    if torch.sum(torch.isnan(sum(kernels))):
+        return loss
+    SS = kernels[:batch_size, :batch_size]
+    TT = kernels[batch_size:, batch_size:]
+    ST = kernels[:batch_size, batch_size:]
+
+    loss += torch.sum(weight_ss * SS + weight_tt * TT - 2 * weight_st * ST)
+    return loss
+
+
 
 
 def JAN(source_list, target_list, kernel_muls=[2.0, 2.0], kernel_nums=[2, 5], fix_sigma_list=[None, None], ver=2):
@@ -156,7 +226,7 @@ class LMMD_loss(nn.Module):
         self.kernel_type = kernel_type
 
     def guassian_kernel(self, batch_size,source, target, kernel_mul=2.0, kernel_num=5, fix_sigma=None):
-        n_samples = int(batch_size) + int(batch_size)
+        n_samples = int(source.size()[0]) + int(target.size()[0])
         total = torch.cat([source, target], dim=0)
         total0 = total.unsqueeze(0).expand(
             int(total.size(0)), int(total.size(0)), int(total.size(1)))
@@ -174,35 +244,24 @@ class LMMD_loss(nn.Module):
                       for bandwidth_temp in bandwidth_list]
         return sum(kernel_val)
 
-    def get_loss(self, feat_source, feat_target, s_label_list, t_label_list):
-        # batch_size = int(source_list[0].size()[0])
-        # layer_num = len(source_list)
-        loss = torch.Tensor([0]).cpu()
-        for l in range(4):
-            size_loss = min(feat_source[l].size(0), feat_target[l].size(0))
-            batch_size = size_loss
-            t_label = t_label_list[l*size_loss:(l+1)*size_loss]
-            s_label = s_label_list[l*size_loss:(l+1)*size_loss]
+    def get_loss(self, feat_source, feat_target, s_label, t_label):
+        batch_size = feat_source.size()[0]
+        weight_ss, weight_tt, weight_st = self.cal_weight(
+            s_label, t_label, batch_size=batch_size, class_num=self.class_num)
+        weight_ss = torch.from_numpy(weight_ss).cuda()
+        weight_tt = torch.from_numpy(weight_tt).cuda()
+        weight_st = torch.from_numpy(weight_st).cuda()
 
+        kernels = self.guassian_kernel(feat_source, feat_target,
+                                kernel_mul=self.kernel_mul, kernel_num=self.kernel_num, fix_sigma=self.fix_sigma)
+        loss = torch.Tensor([0]).cuda()
+        if torch.sum(torch.isnan(sum(kernels))):
+            return loss
+        SS = kernels[:batch_size, :batch_size]
+        TT = kernels[batch_size:, batch_size:]
+        ST = kernels[:batch_size, batch_size:]
 
-
-
-            weight_ss, weight_tt, weight_st = self.cal_weight(
-                s_label, t_label, batch_size=batch_size, class_num=self.class_num)
-            weight_ss = torch.from_numpy(weight_ss).cpu()
-            weight_tt = torch.from_numpy(weight_tt).cpu()
-            weight_st = torch.from_numpy(weight_st).cpu()
-
-            kernels = self.guassian_kernel(batch_size,source, target,
-                                    kernel_mul=self.kernel_mul, kernel_num=self.kernel_num, fix_sigma=self.fix_sigma)
-
-            if torch.sum(torch.isnan(sum(kernels))):
-                return loss
-            SS = kernels[:batch_size, :batch_size]
-            TT = kernels[batch_size:, batch_size:]
-            ST = kernels[:batch_size, batch_size:]
-
-            loss += torch.sum(weight_ss * SS + weight_tt * TT - 2 * weight_st * ST)
+        loss += torch.sum(weight_ss * SS + weight_tt * TT - 2 * weight_st * ST)
         return loss
 
     def convert_to_onehot(self, sca_label, class_num=8):

@@ -305,7 +305,7 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
     losses = AverageMeter()
     top1 = AverageMeter()
     top5 = AverageMeter()
-    lmmd_loss = LMMD_loss()  # Create an instance of your custom loss function
+    #lmmd_loss = LMMD_loss()  # Create an instance of your custom loss function
     if args.no_partialbn:
         model.module.partialBN(False)
     else:
@@ -476,6 +476,9 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
 
 
         elif args.ens_DA == 'DSAN':
+            #size_loss = min(feat_source[l].size(0), feat_target[l].size(0))  # choose the smaller number
+
+            
             feat_source_sel = feat_source[:-args.add_fc]
             feat_target_sel = feat_target[:-args.add_fc]
             print(f"feat_target_sel:{len(feat_target_sel)}")
@@ -483,6 +486,7 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
             feat_source_sel = [feat[:size_loss] for feat in feat_source_sel]
             feat_target_sel = [feat[:size_loss] for feat in feat_target_sel]
             print(f"feat_target_sel2:{len(feat_target_sel)}")
+            print(f"Source label size: {source_label.shape}")
             source_label_sel = source_label.tolist()
             print(f"source_label_sel:{len(source_label_sel)}")
 
@@ -492,8 +496,9 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
             # Reshape source_label_sel into a list of lists with consistent size
             source_label_sel = [source_label_sel[i:i+inner_list_size] for i in range(0, len(source_label_sel), inner_list_size)]
             print(str(size_loss))
+            print(f"Before: {out_target.shape}")
             target_label_sel = torch.nn.functional.softmax(out_target, dim=1)
-            print(target_label_sel.size())
+            print(f"After: {target_label_sel.size()}")
             target_label_sel = target_label_sel.tolist()
 
             # Reshape target_label_sel to have the desired shape
@@ -504,7 +509,7 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
             source_label_sel = torch.tensor(source_label_sel)
             target_label_sel = torch.squeeze(target_label_sel, dim=0)
             print(target_label_sel.shape)
-
+            
 
             loss_lmmd = lmmd_loss.get_loss(feat_source_sel, feat_target_sel, source_label_sel, target_label_sel)
 
@@ -512,6 +517,7 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
                 lambd = 2 / (1 + math.exp(-10 * (epoch) / args.epochs)) - 1
                 loss_classification += lambd * loss_lmmd.item()
                 print("LMMD used")
+            
 
 
 
@@ -540,46 +546,67 @@ def train(num_class, source_loader, target_loader, model, criterion, criterion_d
                                         kernel_nums=kernel_nums, fix_sigma_list=fix_sigma_list, ver=2)
 
             else:
-                # extend the parameter list for shared layers
-                kernel_muls.extend([kernel_muls[-1]]*args.add_fc)
-                kernel_nums.extend([kernel_nums[-1]]*args.add_fc)
-                fix_sigma_list.extend([fix_sigma_list[-1]]*args.add_fc)
+                if len(source_label)>args.batch_size[1] and len(target_label)>args.batch_size[1]:   
+                    # extend the parameter list for shared layers
+                    kernel_muls.extend([kernel_muls[-1]]*args.add_fc)
+                    kernel_nums.extend([kernel_nums[-1]]*args.add_fc)
+                    fix_sigma_list.extend([fix_sigma_list[-1]]*args.add_fc)
+                    weight_ss, weight_tt, weight_st = lmmd_cal_weight(source_label[:args.batch_size[1]], torch.nn.functional.softmax(out_target, dim=1), args.batch_size[1], class_num=8)
+                    for l in range(0, args.add_fc + 2):  # loss from all the features (+2 because of frame-aggregation layer + final fc layer)
+                        if args.place_dis[l] == 'Y':
+                            # select the data for calculating the loss (make sure source # == target #)
+                            size_loss = min(feat_source[l].size(0), feat_target[l].size(0))  # choose the smaller number
+                            #TODO: weight hesaplat
+                            print(f"Size loss: {size_loss}")
+                            
+                            # select
+                            feat_source_sel = feat_source[l][:size_loss]
+                            feat_target_sel = feat_target[l][:size_loss]
 
-                for l in range(0, args.add_fc + 2):  # loss from all the features (+2 because of frame-aggregation layer + final fc layer)
-                    if args.place_dis[l] == 'Y':
-                        # select the data for calculating the loss (make sure source # == target #)
-                        size_loss = min(feat_source[l].size(0), feat_target[l].size(0))  # choose the smaller number
-                        # select
-                        feat_source_sel = feat_source[l][:size_loss]
-                        feat_target_sel = feat_target[l][:size_loss]
+                            # break into multiple batches to avoid "out of memory" issue
+                            size_batch = min(256, feat_source_sel.size(0))
+                            feat_source_sel = feat_source_sel.view((-1, size_batch) + feat_source_sel.size()[1:])
+                            feat_target_sel = feat_target_sel.view((-1, size_batch) + feat_target_sel.size()[1:])
 
-                        # break into multiple batches to avoid "out of memory" issue
-                        size_batch = min(256, feat_source_sel.size(0))
-                        feat_source_sel = feat_source_sel.view((-1, size_batch) + feat_source_sel.size()[1:])
-                        feat_target_sel = feat_target_sel.view((-1, size_batch) + feat_target_sel.size()[1:])
+                            if args.dis_DA == 'CORAL':
+                                raise NotImplementedError("CORAL is not implemented!")
+                                losses_coral = [CORAL(feat_source_sel[t], feat_target_sel[t]) for t in range(feat_source_sel.size(0))]
+                                loss_coral = sum(losses_coral)/len(losses_coral)
+                                loss_discrepancy += loss_coral
+                            elif args.dis_DA == 'DAN':
+                                losses_mmd = [
+                                    mmd_rbf(
+                                        feat_source_sel[t],
+                                        feat_target_sel[t],
+                                        kernel_mul=kernel_muls[l],
+                                        kernel_num=kernel_nums[l],
+                                        fix_sigma=fix_sigma_list[l],
+                                        ver=2) for t in range(feat_source_sel.size(0))]
+                                loss_mmd = sum(losses_mmd) / len(losses_mmd)
 
-                        if args.dis_DA == 'CORAL':
-                            raise NotImplementedError("CORAL is not implemented!")
-                            losses_coral = [CORAL(feat_source_sel[t], feat_target_sel[t]) for t in range(feat_source_sel.size(0))]
-                            loss_coral = sum(losses_coral)/len(losses_coral)
-                            loss_discrepancy += loss_coral
-                        elif args.dis_DA == 'DAN':
-                            losses_mmd = [
-                                mmd_rbf(
-                                    feat_source_sel[t],
-                                    feat_target_sel[t],
-                                    kernel_mul=kernel_muls[l],
-                                    kernel_num=kernel_nums[l],
-                                    fix_sigma=fix_sigma_list[l],
-                                    ver=2) for t in range(feat_source_sel.size(0))]
-                            loss_mmd = sum(losses_mmd) / len(losses_mmd)
+                                loss_discrepancy += loss_mmd
+                            elif args.dis_DA == 'DSAN':
+                                losses_lmmd = [
+                                    lmmd_rbf(
+                                        feat_source_sel[t],
+                                        feat_target_sel[t],
+                                        weight_ss, 
+                                        weight_tt, 
+                                        weight_st,
+                                        kernel_mul=kernel_muls[l],
+                                        kernel_num=kernel_nums[l],
+                                        fix_sigma=fix_sigma_list[l],
+                                        ver=2) for t in range(feat_source_sel.size(0))]
+                                loss_lmmd = sum(losses_lmmd) 
 
-                            loss_discrepancy += loss_mmd
-                        else:
-                            raise NameError('not in dis_DA!!!')
+                                loss_discrepancy += loss_lmmd.data
+                                print(f"loss_discrepancy: {loss_discrepancy}")
+                                print(f"loss_lmmd: {loss_lmmd.data}")
+                            else:
+                                raise NameError('not in dis_DA!!!')
 
-            losses_d.update(loss_discrepancy.item(), feat_source[0].size(0))
-            loss += alpha * loss_discrepancy
+                    losses_d.update(loss_discrepancy.item(), feat_source[0].size(0))
+                    loss +=  loss_discrepancy.item()
 
         # (II) adversarial discriminative model: adversarial loss
         if args.adv_DA != 'none' and args.use_target != 'none':
